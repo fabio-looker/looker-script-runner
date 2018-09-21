@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" /> 
+	<title>Script Runner</title>
+	<link rel="shortcut icon" href="favicon.ico" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+</head>
+<body>
+	<div id="auth-pending" style="display:none">Granting access...</div>
+	<iframe id="auth-ifr" style="width:800px;margin-left: auto;margin-right: auto;"></iframe>
+</body>
+<script>
+var globalToken
+var config = {
+		lookerHost:"sandboxcl.dev.looker.com",
+		lookerUiPort:443,
+		lookerApiPort:19999,
+		model:"embed_api_auth",
+		explore:"auth",
+		redirectPath:"",
+		authCloudFunction: "us-central1-data-proto.cloudfunctions.net/function-3"
+	}
+var states={}
+
+window.addEventListener("hashchange",handleHash)
+$(document).ready(handleHash)
+
+state = getNonce()
+states[state]=true
+let authUrl = (
+		"https://"
+		+config.lookerHost
+		+(config.lookerUiPort=="443"?"":`:${config.lookerUiPort}`)
+		+"/embed/explore"
+		+`/${config.model}`
+		+`/${config.explore}`
+		+".html"
+		+`?fields=${config.explore}.get_signature`
+		+`&f[${config.explore}.external_url]=`+customEncode(config.redirectPath||(document.location.origin+document.location.pathname+document.location.search))
+		+`&f[${config.explore}.external_state]=`+state
+		+"&allow_login_screen=true"
+	)
+console.log(authUrl)
+$("#auth-ifr")[0].src = authUrl
+
+async function handleHash(){
+	let h = getHashObj()
+	console.log("Hashchange",h)
+	setTimeout(()=>window.location.hash="#",0)
+	switch(h.route){
+		case "auth":
+			try{
+				if(!h.state || ! states[h.state]){return} // Guard against unexpected hash calls 
+				$("#auth-pending").show()
+				$("#auth-ifr").hide()
+				let authResult = await $.getJSON(
+					"https://"+config.authCloudFunction
+					+"?aud="+encodeURIComponent(h.aud)
+					+"&exp="+encodeURIComponent(h.exp)
+					+"&sub="+encodeURIComponent(h.sub)
+					+"&sig="+encodeURIComponent(h.sig)
+					+(config.debug?"&debug="+encodeURIComponent(config.debug):"")
+					)
+				console.log(authResult)
+				if(!authResult.access_token){throw authResult}
+				globalToken = authResult.access_token
+				let testValue = await api("GET","user")
+				console.log(testValue)
+				}
+			catch(e){
+				console.error(e)
+				//TODO: Flash error message
+				//TODO: refresh auth-ifr first... get new state, new signature
+				$("#auth-ifr").show()
+				$("#auth-pending").hide()
+				}
+			break;
+		}
+	}
+
+function customEncode(str){
+	return (str
+		.replace(/\//g,"$s")
+		.replace(/\-/g,"$d")
+		.replace(/\:/g,"$c")
+		)
+	}
+
+function getHashObj(){
+		return (location.hash
+				.slice(1)
+				.split('&')
+				.filter(Boolean)
+				.map(ss=>ss.replace(/^\//,"route="))
+				.map(ss=>ss.split('='))
+				.reduce((aa,a)=>({[decodeURIComponent(a[0])]:decodeURIComponent(a.slice(1).join('=')), ...aa}),{})
+			);
+	}
+
+function api(verb,method,data){
+	return $.ajax({
+		method:verb,
+		url:"/api/3.0/"+method,
+		data:verb=="POST"?JSON.stringify(data):data,
+		headers:{"Authorization":"token "+globalToken}
+		})
+	}
+function getNonce(len = 8){
+	let arr = new Uint8Array(len / 2)
+	window.crypto.getRandomValues(arr)
+	return Array.from(arr).map(int=>'0'+int.toString(16).slice(-2)).join('')
+	}
+</script>
+</html>

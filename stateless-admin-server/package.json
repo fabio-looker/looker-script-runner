@@ -1,0 +1,12 @@
+{
+  "name": "looker-api-token-via-embed-server",
+  "version": "0.0.0",
+  "description": "The server component which check signatures and returns tokens to end-clients",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Fabio Beltramini",
+  "license": "UNLICENSED",
+  "dependencies": {}
+}
