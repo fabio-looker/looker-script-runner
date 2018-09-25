@@ -1,3 +1,5 @@
-exports.cors = require('./cors')
-exports.authCheckOnline = require('./online-auth-check')
-exports.static = require('./static')
+exports = module.exports = {
+	...require('./cors'),
+	...require('./auth-online'),
+	...require('./app')
+	}

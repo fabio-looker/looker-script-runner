@@ -1,0 +1,25 @@
+{
+	"instances":[
+		{	"id":"default",
+			"label": "Sandbox",
+			"lookerHost": "sanboxcl.dev.looker.com",
+			"lookerUiPort":"9999",
+			"lookerApiPort":"19999",
+			"cloudFunction":{
+				"host":"us-central1-data-proto.cloudfunctions.net",
+				"auth": "function-3",
+				"cors": "cors"
+				}
+			}
+		],
+	"scripts": [
+		{	"id":"unused-content",
+			"type": "client-api",
+			"instance": "default",
+			"source": "https://..."
+			}
+		],
+	"pairings":[
+		{"instance":"default","script":"/^...$/"}
+		]
+	}

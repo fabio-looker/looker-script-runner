@@ -1,5 +1,5 @@
-const https = require('https');
-exports = module.exports = async (req, res) => {
+const https = require('https')
+exports.authOnline = async (req, res) => {
 	let clientId = process.env.clientId,
 	 	clientSecret = process.env.clientSecret,
 		lookerHost = process.env.lookerHost,
@@ -10,56 +10,29 @@ exports = module.exports = async (req, res) => {
 	try{
 		//Allow-Origin: * should be fine since the request doesn't mutate anything and the authentication is explicit in the request (i.e., not in a cookie)
 		res.set('Access-Control-Allow-Origin', process.env.allowOrigin || "*")
-		if(!clientId){
-			throw "Function is misconfigured - missing clientId (API credentials)"
-			}
-		if(!clientSecret){
-			throw "Function is misconfigured - missing clientSecret (API credentials)"
-			}
-		if(!lookerHost){
-			throw "Function is misconfigured - missing lookerHost"
-			}
-		if(!lookerHost.match(/^[^:/?&#@ \n\t]+$/)){
-			throw "Function is misconfigured - malformed lookerHost"
-			} 
-		if(!lookerApiPort.match(/^[0-9]{1,5}$/)){
-			throw "Function is misconfigured - malformed lookerApiPort"
-			}
-		if(!model.match(/^[^:/?&#@ \n\t]+$/)){
-			throw "Function is misconfigured - malformed model"
-			}
-		if(!explore.match(/^[^:/?&#@ \n\t]+$/)){
-			throw "Function is misconfigured - malformed explore"
-			} 
-		if(!req.query.aud){
-			return res.status(400).send({error:"Missing required querystring parameter: aud"})
-			}
-		if(!req.query.exp){
-			return res.status(400).send({error:"Missing required querystring parameter: exp"})
-			}
-		if(!req.query.sub){
-			return res.status(400).send({error:"Missing required querystring parameter: sub"})
-			}
-		if(!req.query.sig){
-			return res.status(400).send({error:"Missing required querystring parameter: sig"})
-			}
-		if(!req.query.sub.match(/^[0-9]+$/)){
-			return res.status(400).send({error:"Malformed querystring parameter: sub"})
-			}
-		if(isNaN(parseInt(req.query.exp))){
-			return res.status(400).send({error:"Malformed querystring parameter: exp"})
-			}
-		if(!(parseInt(req.query.exp)<=Date.now())){
-			return res.status(401).send({error:"Claim has expired. (Try starting over)"})
-			}
-		let adminAuth = await api("POST","login",{queryData:{client_id:clientId,client_secret:clientSecret}})
-		if(!adminAuth || !adminAuth.access_token){
-			throw {msg:"Unexpected admin auth response",adminAuth}
-			}
+		//Server config validation::
+		if(!clientId){throw "Function is misconfigured - missing clientId (API credentials)"}
+		if(!clientSecret){throw "Function is misconfigured - missing clientSecret (API credentials)"}
+		if(!lookerHost){throw "Function is misconfigured - missing lookerHost"}
+		if(!lookerHost.match(/^[^:/?&#@ \n\t]+$/)){throw "Function is misconfigured - malformed lookerHost"} 
+		if(!lookerApiPort.match(/^[0-9]{1,5}$/)){throw "Function is misconfigured - malformed lookerApiPort"}
+		if(!model.match(/^[^:/?&#@ \n\t]+$/)){throw "Function is misconfigured - malformed model"}
+		if(!explore.match(/^[^:/?&#@ \n\t]+$/)){throw "Function is misconfigured - malformed explore"}
+		//Request validation:
+		if(!req.query.aud){return res.status(400).send({error:"Missing required querystring parameter: aud"})}
+		if(!req.query.exp){return res.status(400).send({error:"Missing required querystring parameter: exp"})}
+		if(!req.query.sub){return res.status(400).send({error:"Missing required querystring parameter: sub"})}
+		if(!req.query.sig){return res.status(400).send({error:"Missing required querystring parameter: sig"})}
+		if(!req.query.sub.match(/^[0-9]+$/)){return res.status(400).send({error:"Malformed querystring parameter: sub"})}
+		if(isNaN(parseInt(req.query.exp))){return res.status(400).send({error:"Malformed querystring parameter: exp"})}
+		if(!(parseInt(req.query.exp)<=Date.now())){return res.status(401).send({error:"Claim has expired. (Try starting over)"})}
+		
+		let adminAuth = await api("POST","login",{qs:{client_id:clientId,client_secret:clientSecret}})
+		if(!adminAuth || !adminAuth.access_token){throw {msg:"Unexpected admin auth response",adminAuth}}
 		let adminToken = adminAuth.access_token
 		let authCheck = await api("GET", `queries/models/${model}/views/${explore}/run/json`,{
 			token:adminToken,
-			queryData:{
+			qs:{
 				fields:`${explore}.check_claim,${explore}.check`,
 				[`f[${explore}.aud]`]:req.query.aud,
 				[`f[${explore}.exp]`]:req.query.exp,
@@ -86,20 +59,21 @@ exports = module.exports = async (req, res) => {
 		}
 	return
 	
-	function api(verb,method,{token,queryData={},postData,debug}){
+	function api(verb,method,{token,qs={},body,debug}={}){
 		return new Promise((res,rej)=>{
 			let requestConfig = {
 				method: verb,
 				hostname: lookerHost,
 				port: lookerApiPort,
-				path: "/api/3.0/"+method+"?"
-					+ Object.entries(queryData).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
+				path: "/api/3.0/"+method
+					+ (method.includes("?")?"&":"?")
+					+ Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
 					,
 				headers: {
 					...(token?{"Authorization":"token "+token}:{})
 					}
 				}
-			let requestBody = postData===undefined?"":JSON.stringify(postData)
+			let requestBody = body===undefined?"":JSON.stringify(body)
 			if(debug){console.log("Request",{...requestConfig,body:requestBody})}
 			let req = https.request(requestConfig,
 				resp=>{
