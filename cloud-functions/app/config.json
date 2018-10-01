@@ -5,21 +5,19 @@
 			"lookerHost": "sanboxcl.dev.looker.com",
 			"lookerUiPort":"9999",
 			"lookerApiPort":"19999",
-			"cloudFunction":{
-				"host":"us-central1-data-proto.cloudfunctions.net",
-				"auth": "function-3",
-				"cors": "cors"
-				}
+			"cfnHost":"us-central1-data-proto.cloudfunctions.net",
+			"cfnAuth": "function-3",
+			"cfnCors": "cors"
 			}
 		],
 	"scripts": [
 		{	"id":"unused-content",
 			"type": "client-api",
-			"instance": "default",
-			"source": "https://..."
+			"source": "/example-1.script.json"
+			},
+		{	"id":"example2",
+			"type": "client-api",
+			"source": "/example-2.script.json"
 			}
-		],
-	"pairings":[
-		{"instance":"default","script":"/^...$/"}
 		]
 	}

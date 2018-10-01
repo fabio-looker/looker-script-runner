@@ -5,140 +5,266 @@
 	<title>Looker API Environment</title>
 	<!--<link rel="shortcut icon" href="favicon.ico" />-->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/hyperapp/1.2.5/hyperapp.js" integrity="sha256-EO1vRmcxDsotgvYvFuhhr9KbV3zX4a0uop87FBqNVwo=" crossorigin="anonymous"></script>
+	<style>
+	#main{display:flex; flex-direction: column; min-width:600px; max-width:960px; width:80%; margin-left:auto; margin-right:auto;}
+	.overlay{position:fixed;top:0;bottom:0;left:0;right:0;background: rgba(0,0,0,0.3)}
+	.lightbox{position:relative;height:640px;width:480px;margin:auto;display:flex;justify-content:center;}
+	#popup{position:absolute;top:1em;right:1em;text-align:center;height:2em;width:2em;border-radius:50%;background:white}
+	#auth iframe {height:100%;width:100%}
+	</style>
 </head>
 <body>
-	<div id="auth-state" style="display:flex; flex-direction: row; justify-content:center; margin-top:4em;">
-		<div style="width:600px;height:480px;position:relative;top:0;left:0">
-			<a id="popup" target="popup" style="position:absolute;top:1em;right:1em;text-align:center;height:2em;width:2em;border-radius:50%;background:white">⧉</a>
-			<iframe id="auth-ifr" style="height:100%;width:100%"></iframe>
-		</div>
-		<div id="auth-pending" style="display:none; color:#999">Granting access...</div>
-		<div id="auth-complete" style="display:none; color:#090; font-weight:bold">Access granted!</div>
-	</div>
 </body>
-<script type="text/work-in-progress">!async function(){
-let config = await $.getJSON("/config")
-
-var catalogue = (config.pairings||[{}])
-	.map(pair => {
-			let instances = 
-				pair.instance === undefined ? config.instances
-				: typeof pair.instance == "object" ? pair.instance
-				: typeof pair.instance == "string" 
-					? (pair.instance.slice(0,1)=="/" && pair.instance.slice(-1)=="/" 
-						? config.instances.filter(i => i.test(new Regex(pair.instance)))
-						: [config.instances.find(i => i.id === pair.instance)]
-						)
-					: []
-			let scripts = 
-				pair.script === undefined ? config.scripts
-				: typeof pair.script == "object" ? pair.script
-				: typeof pair.script == "string" 
-					? (pair.script.slice(0,1)=="/" && pair.script.slice(-1)=="/" 
-						? config.scripts.filter(i => i.test(new Regex(pair.script)))
-						: [config.scripts.find(i => i.id === pair.script)]
-						)
-					: []
-			let integrations = []
-			for(let instance of instances){for (let script of scripts){integrations.push({instance,script})}}
-			return integrations
-		})
-	.reduce(flatten,[])
-function flatten(a,b){return a.concat(b)}
-</script>
 <script>
-var globalToken
-var config = {
-		lookerHost:"sandboxcl.dev.looker.com",
-		lookerUiPort:443,
-		lookerApiPort:19999,
-		model:"embed_api_auth",
-		explore:"auth",
-		redirectPath:"",
-		cloudFunctions:{
-			host: "us-central1-data-proto.cloudfunctions.net",
-			authPath: "function-3",
-			corsPath: "cors"
+!async function(){
+
+const actions = {
+	state: value => state => state,
+	omni: value => state => {document.location="#q="+encodeURIComponent(value)},
+	addScript: script => state => {
+		let relevantPairings = config.pairings.filter(p=>p.scripts.test(script.id))
+		let pairedScript = {
+			...script,
+			pairings:state.instances.filter(inst => relevantPairings.some(p=>p.instances.test(inst.id)))
 			}
-	}
-var states={}
-
-window.addEventListener("hashchange",handleHash)
-$(document).ready(handleHash)
-
-state = getNonce()
-states[state]=true
-let authUrl = (
-		"https://"
-		+config.lookerHost
-		+(config.lookerUiPort=="443"?"":`:${config.lookerUiPort}`)
-		+"/embed/explore"
-		+`/${config.model}`
-		+`/${config.explore}`
-		+".html"
-		+`?fields=${config.explore}.get_signature`
-		+`&f[${config.explore}.external_url]=`+customEncode(config.redirectPath||(document.location.origin+document.location.pathname+document.location.search))
-		+`&f[${config.explore}.external_state]=`+state
-		+"&allow_login_screen=true"
-	)
-console.log(authUrl)
-$("#auth-ifr")[0].src = authUrl
-$("#popup")[0].href=authUrl
-$("#popup").on("click",function(evt){evt.preventDefault();window.open(this);})
-async function handleHash(){
-	let h = getHashObj()
-	console.log("Hashchange",h)
-	setTimeout(()=>window.location.hash="#",0)
-	switch(h.route){
-		case "auth":
-			try{
-				if(!h.state || ! states[h.state]){return} // Guard against unexpected hash calls 
-				$("#auth-state>*").hide()
-				$("#auth-pending").show()
-				let authResult = await $.getJSON(
-					"https://"+config.cloudFunctions.host
-					+"/"+config.cloudFunctions.authPath
-					+"?aud="+encodeURIComponent(h.aud)
-					+"&exp="+encodeURIComponent(h.exp)
-					+"&sub="+encodeURIComponent(h.sub)
-					+"&sig="+encodeURIComponent(h.sig)
-					+(config.debug?"&debug="+encodeURIComponent(config.debug):"")
-					)
-				console.log(authResult)
-				if(!authResult.access_token){throw authResult}
-				globalToken = authResult.access_token
-				//let testValue = await api("GET user")
-				$("#auth-state>*").hide()
-				$("#auth-complete").show()
+		let pairedInstances = state.instances.map(inst => ({
+			...inst,
+			...relevantPairings.some(p=>p.instances.test(inst.id))	
+				? {pairings:inst.pairings.concat(pairedScript)}
+				: {}
+			}))
+		return {
+			scripts:state.scripts.concat(pairedScript),
+			scriptsById:{...state.scriptsById,[pairedScript.id]:pairedScript},
+			instances:pairedInstances,
+			instancesById:pairedInstances.reduce(byId,{})
+			}
+		},
+	route: route => state => {
+		console.log("Route",route)
+		if(route.path && route.path[0]==='/' && run[route.path]){
+			run[route.path](route)
+			}
+		return {route}
+		},
+	'/run': route => state => {
+		let instance = state.instancesById[route.instance]
+		if(!instance.session || !instance.session.expiresAt>Date.now()){
+			run.authInit(instance)
+			return
+			}
+		},
+	authInit: instance => state => {
+		if(instance.session && instance.session.expiresAt>Date.now()){return}
+		//Prep for XSRF protection
+		let externalStateId = getNonce()
+		localStorage.setItem("externalStates",JSON.stringify({
+			...tryJsonParse(localStorage.getItem("externalStates"),{}),
+			[externalStateId]:{
+				instanceId:instance.id,
+				route: state.route
 				}
-			catch(e){
-				console.error(e)
-				//TODO: Flash error message
-				//TODO: refresh auth-ifr first... get new state, new signature
-				$("#auth-state>*").hide()
-				$("#auth-ifr").show()
-				}
-			break;
+			}))
+		let authUrl = getAuthUrl(instance, externalStateId)
+		if(instance.authWindow==="popup"){
+			window.open(authUrl,"auth-popup","height=480,width=600")
+			}
+		else if(instance.authWindow==="top"){
+			document.location = authUrl
+			}
+		return {authUrl}
+		},
+	'/auth/claim': route => state => {
+		window.location="#/auth/pending"
+		let externalStates = tryJsonParse(localStorage.getItem("externalStates"),{})
+		let externalStateId = route.state
+		let externalState = externalStates[externalStateId]
+		if (!state){throw "Invalid state in claim"} // Guard against XSRF
+		let instance = instancesById[externalState.instanceId]
+		if (!instance
+			|| !instance.cfnHost
+			|| !instance.cfnAuth
+			){throw "Invalid instance"}
+		$.getJSON(
+			"https://"+instance.cloudFunction.host
+			+"/"+(instance.cloudFunction.auth||"auth")
+			+"?aud="+encodeURIComponent(h.aud)
+			+"&exp="+encodeURIComponent(h.exp)
+			+"&sub="+encodeURIComponent(h.sub)
+			+"&sig="+encodeURIComponent(h.sig)
+			+(config.debug?"&debug="+encodeURIComponent(config.debug):"")
+			)
+		.then(session=>run.authFinish({instance,session,externalStateId}))
+		return
+		},
+	authFinish: ({instance,session,externalStateId}) => state => {
+		let externalStates = tryJsonParse(localStorage.getItem("externalStates"))
+		let externalState = externalStates[externalStateId]
+		window.location=obj2Hash(externalState.route||{})
+		delete externalStates[externalStateId]
+		localStorage.setItem("externalStates",JSON.stringify(externalStates))
+		
+		if(!session.access_token){throw authResult}
+		session.expiresAt = Date.now() + instance.auth.expires_in*1000
+		localStorage.setItem("sessions",{
+			...tryJsonParse(localStorage.getItem("sessions")),
+			[instance.id]:session
+			})
+		setTimeout(run.state, instance.auth.expires_in*1000) //Refresh views when a session expires
 		}
 	}
 
-function customEncode(str){
-	return (str
-		.replace(/\//g,"$s")
-		.replace(/\-/g,"$d")
-		.replace(/\:/g,"$c")
-		)
+window.name = "runner"
+const instanceDefaults = {
+	"lkrUiPort":"",
+	"lkrApiPort":"19999",
+	"lkrModel":"embed_api_auth",
+	"lkrExplore":"auth",
+	"authWindow":"popup",
+	"cfnAuth": "auth",
+	"cfnCors": "cors"
+	}
+const priorSessions = tryJsonParse(localStorage.getItem("sessions"),{})
+const config = await $.getJSON("/config.json")
+config.instances = (config.instances||[]).filter(i=>i.id).map(i=>({
+	...instanceDefaults,
+	...i,
+	session:priorSessions[i.id],
+	pairings:[]
+	}))
+config.scripts = (config.scripts||[]).filter(s=>s.id && s.source)
+config.pairings = (config.pairings||[{}]).map(pair=>({
+		instances:	new RegExp("^("+(pair.instances||".*")+")$"),
+		scripts:	new RegExp("^("+(pair.scripts  ||".*")+")$")
+	}))
+
+const state = {
+	route:{path:""},
+	scripts:[],
+	scriptsById:{},
+	instances:config.instances,
+	instancesById:config.instances.reduce(byId,{}),
+	authUrl:""
 	}
 
+const run = hyperapp.app(state,actions,view(),document.body)
+config.scripts.forEach(async s => {
+	run.addScript({...await $.getJSON(s.source),...s})
+	})
+Object.values(priorSessions).forEach(s => setTimeout(run.state,s.expiresAt-Date.now()))
+run.route(getHashObj())
+window.addEventListener("hashchange",()=>run.route(getHashObj()))
+
+}()
+
+function view(){
+	const {h} = hyperapp
+	const [div,span,input,img,select,option,a,iframe]
+		= 'div,span,input,img,select,option,a,iframe'.split(',')
+		.map(tag => (o,a)=>h(tag,o,a))
+	return (s,a) => div({id:'main'},[
+		(s.route.path||'').startsWith('/auth')
+			? div({class:'auth overlay'},[
+				div({class:'lightbox'},{
+					'/auth/init':[
+						a({id:'popup',target:'popup',
+							href:authUrl(s.instancesById(s.route.instance)),
+							onclick:function(evt){evt.preventDefault();}
+							},"⧉"),
+						iframe({id:'auth-ifr',src:authUrl(s.instancesById(s.route.instance))})
+						],
+					'/auth/claim':[div({},"Validating access...")],
+					'/auth/pending':[div({},"Validating access...")]
+					}[s.route.path])
+				])
+			: undefined,
+		input({type:'text',id:'omni', onchange:()=>a.omni(this.value)}),
+		div({class:'card-section'},"Instances"),
+		div({class:'card-container'},s.instances.filter(search(s.route.q)).map(inst =>
+			div({class:'card'},[
+				div({class:'label'},inst.label||labelize(inst.id)),
+				img({class:'icon',src:inst.icon}),
+				span({class:'host'},inst.lkrHost),
+				span({class:['session',inst.session?'active':'inactive']},''),
+				div({class:'description'},inst.description||""),
+				select(
+					{onchange:()=>document.location=obj2Hash({path:"/run",instance:inst.id,script:this.value})},
+					[	option({value:""},""),
+						...inst.pairings
+						.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
+						]
+					)
+				])
+			)),
+		div({class:'card-section'},"Scripts"),
+		div({class:'card-container'},s.scripts.filter(search(s.route.q)).map(scr =>
+			div({class:'card'},[
+				div({class:'label'},scr.label||labelize(scr.id)),
+				img({class:'icon',src:scr.icon}),
+				div({class:'description'},scr.description||""),
+				select(
+					{onchange:()=>document.location=obj2Hash({path:"/run",instance:this.value,script:scr.id})},
+					[	option({value:""},""),
+						...scr.pairings
+						.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
+						]
+					)
+				]))
+			)
+		])
+		
+	function search(str){
+		let lc = (str||'').toLowerCase()
+		let keys = ["id","label","description","lkrHost","source"]
+		return function(obj){
+				return !str
+					|| obj.match && str.match(obj.match)
+					|| keys.some(k=>obj[k] && obj[k].toLowerCase && obj[k].toLowerCase().find(lc))
+			}
+		}
+	function labelize(str){
+		return str.replace(/[-_]/g," ").replace(/( |^)[a-z]/g,m=>m.toUpperCase())
+		}
+	}
+function byId(obj,item){return {...obj,[item.id]:item}}
+function tryJsonParse(str,dft){
+	if(typeof str!="string"){return dft}
+	try{return JSON.parse(str)}catch(e){return dft}
+	}
+function customEncode(str){return encodeURIComponent(str
+	.replace(/\//g,"$s")
+	.replace(/\-/g,"$d")
+	.replace(/\:/g,"$c")
+	)}
+
 function getHashObj(){
-		return (location.hash
-				.slice(1)
-				.split('&')
-				.filter(Boolean)
-				.map(ss=>ss.replace(/^\//,"route="))
-				.map(ss=>ss.split('='))
-				.reduce((aa,a)=>({[decodeURIComponent(a[0])]:decodeURIComponent(a.slice(1).join('=')), ...aa}),{})
-			);
+	return (location.hash.slice(1).split('&').filter(Boolean)
+			.map(ss=>ss.replace(/^\//,"path=/"))
+			.map(ss=>ss.split('='))
+			.reduce((aa,a)=>({[decodeURIComponent(a[0])]:decodeURIComponent(a.slice(1).join('=')), ...aa}),{})
+		)
+	}
+function obj2Hash(obj){
+	return ('#'
+		+ (obj.path ? encodeURIComponent(obj.path).replace(/%2F/ig,'/'):'')
+		+ Object.entries(obj)
+		.filter(([k,v])=>k!=='path')
+		.map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v))
+		)
+	}
+function getAuthUrl(instance,state){
+	return (
+		`https://${instance.lkrHost}`
+		+instance.lkrUiPort?'':`:${instance.lkrUiPort}`
+		+`/embed/explore/${instance.lkrModel}/${instance.lkrExplore}.html`
+		+`?fields=${instance.lkrExplore}.get_signature`
+		+`&f[${instance.lkrExplore}.external_url]=`
+			+customEncode(instance.redirectPath||(document.location.origin+document.location.pathname+document.location.search))
+		+`&f[${instance.lkrExplore}.external_state]=`+state
+		+`&f[${instance.lkrExplore}.external_window]=runner` //TODO: Reflect this
+		+"&allow_login_screen=true"
+		)
 	}
 
 function api(endpoint,{token, qs={}, body}={}){
