@@ -83,12 +83,10 @@ const actions = {
 		if (!state){throw "Invalid state in claim"} // Guard against XSRF
 		let instance = instancesById[externalState.instanceId]
 		if (!instance
-			|| !instance.cfnHost
 			|| !instance.cfnAuth
 			){throw "Invalid instance"}
 		$.getJSON(
-			"https://"+instance.cloudFunction.host
-			+"/"+(instance.cloudFunction.auth||"auth")
+			"https://"+instance.cfnAuth
 			+"?aud="+encodeURIComponent(h.aud)
 			+"&exp="+encodeURIComponent(h.exp)
 			+"&sub="+encodeURIComponent(h.sub)
@@ -117,13 +115,10 @@ const actions = {
 
 window.name = "runner"
 const instanceDefaults = {
-	"lkrUiPort":"",
-	"lkrApiPort":"19999",
 	"lkrModel":"embed_api_auth",
 	"lkrExplore":"auth",
-	"authWindow":"popup",
-	"cfnAuth": "auth",
-	"cfnCors": "cors"
+	"lkrDash":"init",
+	"authWindow":"popup"
 	}
 const priorSessions = tryJsonParse(localStorage.getItem("sessions"),{})
 const config = await $.getJSON("/config.json")
@@ -185,7 +180,7 @@ function view(){
 			div({class:'card'},[
 				div({class:'label'},inst.label||labelize(inst.id)),
 				img({class:'icon',src:inst.icon}),
-				span({class:'host'},inst.lkrHost),
+				span({class:'host'},inst.lkrUiHost),
 				span({class:['session',inst.session?'active':'inactive']},''),
 				div({class:'description'},inst.description||""),
 				select(
@@ -255,15 +250,15 @@ function obj2Hash(obj){
 	}
 function getAuthUrl(instance,state){
 	return (
-		`https://${instance.lkrHost}`
-		+instance.lkrUiPort?'':`:${instance.lkrUiPort}`
-		+`/embed/explore/${instance.lkrModel}/${instance.lkrExplore}.html`
-		+`?fields=${instance.lkrExplore}.get_signature`
-		+`&f[${instance.lkrExplore}.external_url]=`
-			+customEncode(instance.redirectPath||(document.location.origin+document.location.pathname+document.location.search))
-		+`&f[${instance.lkrExplore}.external_state]=`+state
-		+`&f[${instance.lkrExplore}.external_window]=runner` //TODO: Reflect this
-		+"&allow_login_screen=true"
+		`https://${instance.lkrUiHost}`
+		+`/embed/dashboards/${instance.lkrModel}::${instance.lkrDash}`
+		+'?allow_login_screen=true'
+		+'&external_window='+(instance.authWindow=="popup"?"runner":"_parent")
+		+'&external_state='+state
+		+'&external_url='+customEncode(
+			instance.redirectPath
+			||(document.location.origin+document.location.pathname+document.location.search)
+			)
 		)
 	}
 

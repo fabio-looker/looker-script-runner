@@ -2,12 +2,10 @@
 	"instances":[
 		{	"id":"default",
 			"label": "Sandbox",
-			"lookerHost": "sanboxcl.dev.looker.com",
-			"lookerUiPort":"9999",
-			"lookerApiPort":"19999",
-			"cfnHost":"us-central1-data-proto.cloudfunctions.net",
-			"cfnAuth": "function-3",
-			"cfnCors": "cors"
+			"lkrUiHost":"sanboxcl.dev.looker.com",
+			"lkrApiHost":"sanboxcl.dev.looker.com:19999",
+			"cfnAuth":"us-central1-data-proto.cloudfunctions.net/function-3",
+			"cfnCors": "us-central1-data-proto.cloudfunctions.net/function-3"
 			}
 		],
 	"scripts": [
