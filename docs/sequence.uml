@@ -1,0 +1,22 @@
+title Authentication Sequence
+
+Client (App) -> Client (Looker): Load Auth UI
+Client (Looker) -> Looker Instance: Req sign(session cookie)
+note right of Looker Instance: Check session cookie
+note right of Looker Instance: Is user authenticated?
+note right of Looker Instance: User access to Auth model?
+Looker Instance -> DWH: Req sign(uid, exp* from model)
+note left of DWH: Sign w/today's secret
+DWH -> Looker Instance: Return (uid,exp,signature)
+Looker Instance -> Client (Looker): Return (uid,exp,signature)
+Client (Looker) -> Client (App): Return (uid,exp,signature)
+Client (App) -> Auth Server: Req token(uid,exp,signature)
+note left of Auth Server: Check exp not expired
+Auth Server -> Looker Instance: Req verify(uid,exp,signature)
+Looker Instance -> DWH: Req verify(uid, exp* from model)
+DWH -> Looker Instance: Return ok
+Looker Instance -> Auth Server: Return ok
+Auth Server -> Looker Instance: Req token(admin_credentials,uid)
+Looker Instance -> Auth Server: Return token
+Auth Server -> Client (App): Return token
+Client (App) <-> Looker Instance: api(token,...) - via intermediate CORS proxy
