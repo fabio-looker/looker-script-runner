@@ -1,27 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="utf-8" /> 
+	<meta charset="utf-8" />
 	<title>Looker API Environment</title>
 	<!--<link rel="shortcut icon" href="favicon.ico" />-->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/hyperapp/1.2.5/hyperapp.js" integrity="sha256-EO1vRmcxDsotgvYvFuhhr9KbV3zX4a0uop87FBqNVwo=" crossorigin="anonymous"></script>
 	<style>
-	#main{display:flex; flex-direction: column; min-width:600px; max-width:960px; width:80%; margin-left:auto; margin-right:auto;}
+	html,body{color:#444;background-color: #fff}
+	#main{display:flex; flex-direction: column; min-width:600px; max-width:1600px; width:90%; margin-left:auto; margin-right:auto;}
 	.overlay{position:fixed;top:0;bottom:0;left:0;right:0;background: rgba(0,0,0,0.3)}
 	.lightbox{position:relative;height:640px;width:480px;margin:auto;display:flex;justify-content:center;}
 	#popup{position:absolute;top:1em;right:1em;text-align:center;height:2em;width:2em;border-radius:50%;background:white}
 	#auth iframe {height:100%;width:100%}
+	#omni {height:1.5em;margin:1em 0;}
+	div.card-section {border-bottom: 1px solid #333; font-size:1.4em; font-weight: bold}
+	div.card-container {display: flex; flex-direction: row; justify-content: center;}
+	div.card {width:30%; height:6.8em; margin:1em 8px; border-radius:0.5em;box-shadow:2px 2px 4px 4px rgba(0,0,0,0.3);padding:0.5em }
+	div.card .label {border-bottom:1px solid #999; background:linear-gradient(to bottom, #fff 0%, #eee 100%);color:#111;font-weight:bold}
+	div.card .description {max-height:2.2em; overflow:hidden; text-overflow: ellipsis;}
+	div.card .session {display:inline-block; vertical-align: center; height:0.8em;width:0.8em;border-radius: 0.4em;margin-right: 0.4em}
+	div.card .session.active {background-color:#cfd}
+	div.card .session.inactive {background-color:#ccc}
+
 	</style>
 </head>
 <body>
 </body>
 <script>
-!async function(){
+var run
+!async function main(){
 
 const actions = {
 	state: value => state => state,
-	omni: value => state => {document.location="#q="+encodeURIComponent(value)},
+	omni: value => state => {document.location="#list&q="+encodeURIComponent(value)},
 	addScript: script => state => {
 		let relevantPairings = config.pairings.filter(p=>p.scripts.test(script.id))
 		let pairedScript = {
@@ -30,7 +42,7 @@ const actions = {
 			}
 		let pairedInstances = state.instances.map(inst => ({
 			...inst,
-			...relevantPairings.some(p=>p.instances.test(inst.id))	
+			...relevantPairings.some(p=>p.instances.test(inst.id))
 				? {pairings:inst.pairings.concat(pairedScript)}
 				: {}
 			}))
@@ -67,8 +79,10 @@ const actions = {
 				}
 			}))
 		let authUrl = getAuthUrl(instance, externalStateId)
+		console.log(instance);
+		console.log(authUrl);
 		if(instance.authWindow==="popup"){
-			window.open(authUrl,"auth-popup","height=480,width=600")
+			window.open(authUrl,"auth-popup","height=640,width=480,top=160,left=320")
 			}
 		else if(instance.authWindow==="top"){
 			document.location = authUrl
@@ -104,7 +118,7 @@ const actions = {
 		window.location=obj2Hash(externalState.route||{})
 		delete externalStates[externalStateId]
 		localStorage.setItem("externalStates",JSON.stringify(externalStates))
-		
+
 		if(!session.access_token){throw authResult}
 		session.expiresAt = Date.now() + instance.auth.expires_in*1000
 		localStorage.setItem("sessions",{
@@ -114,6 +128,7 @@ const actions = {
 		setTimeout(run.state, instance.auth.expires_in*1000) //Refresh views when a session expires
 		}
 	}
+
 
 window.name = "runner"
 const instanceDefaults = {
@@ -148,7 +163,7 @@ const state = {
 	authUrl:""
 	}
 
-const run = hyperapp.app(state,actions,view(),document.body)
+run = hyperapp.app(state,actions,view(),document.body)
 config.scripts.forEach(async s => {
 	run.addScript({...await $.getJSON(s.source),...s})
 	})
@@ -156,41 +171,43 @@ Object.values(priorSessions).forEach(s => setTimeout(run.state,s.expiresAt-Date.
 run.route(getHashObj())
 window.addEventListener("hashchange",()=>run.route(getHashObj()))
 
-}()
-
 function view(){
 	const {h} = hyperapp
-	const [div,span,input,img,select,option,a,iframe]
-		= 'div,span,input,img,select,option,a,iframe'.split(',')
+	const [div,span,input,img,select,option,iframe,anchor]
+		= 'div,span,input,img,select,option,iframe,a'.split(',')
 		.map(tag => (o,a)=>h(tag,o,a))
 	return (s,a) => div({id:'main'},[
 		(s.route.path||'').startsWith('/auth')
 			? div({class:'auth overlay'},[
 				div({class:'lightbox'},{
 					'/auth/init':[
-						a({id:'popup',target:'popup',
-							href:authUrl(s.instancesById(s.route.instance)),
-							onclick:function(evt){evt.preventDefault();}
+						anchor({id:'popup',target:'popup',
+							href:s.authUrl
 							},"⧉"),
-						iframe({id:'auth-ifr',src:authUrl(s.instancesById(s.route.instance))})
+						iframe({id:'auth-ifr',src:s.authUrl})
 						],
 					'/auth/claim':[div({},"Validating access...")],
 					'/auth/pending':[div({},"Validating access...")]
 					}[s.route.path])
 				])
 			: undefined,
-		input({type:'text',id:'omni', onchange:()=>a.omni(this.value)}),
+		input({type:'text',id:'omni',value:s.route.q,onkeyup:evt=>a.omni(evt.target.value)}),
 		div({class:'card-section'},"Instances"),
 		div({class:'card-container'},s.instances.filter(search(s.route.q)).map(inst =>
 			div({class:'card'},[
-				div({class:'label'},inst.label||labelize(inst.id)),
+				div({class:'label'},[
+					span({class:'session '+(inst.session?'active':'inactive')},' '),
+					inst.label||labelize(inst.id)
+					]),
 				img({class:'icon',src:inst.icon}),
 				span({class:'host'},inst.lkrHost),
-				span({class:['session',inst.session?'active':'inactive']},''),
 				div({class:'description'},inst.description||""),
 				select(
-					{onchange:()=>document.location=obj2Hash({path:"/run",instance:inst.id,script:this.value})},
-					[	option({value:""},""),
+					{onchange: evt => evt.target.value
+						&& (document.location=obj2Hash({path:"/run",instance:inst.id,script:evt.target.value}))
+						&& (evt.target.value = '')
+						},
+					[	option({value:"",selected:true},""),
 						...inst.pairings
 						.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
 						]
@@ -204,8 +221,8 @@ function view(){
 				img({class:'icon',src:scr.icon}),
 				div({class:'description'},scr.description||""),
 				select(
-					{onchange:()=>document.location=obj2Hash({path:"/run",instance:this.value,script:scr.id})},
-					[	option({value:""},""),
+					{onchange:evt=>document.location=obj2Hash({path:"/run",instance:evt.target.value,script:scr.id})},
+					[	option({value:"",selected:true},""),
 						...scr.pairings
 						.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
 						]
@@ -213,14 +230,14 @@ function view(){
 				]))
 			)
 		])
-		
+
 	function search(str){
 		let lc = (str||'').toLowerCase()
 		let keys = ["id","label","description","lkrHost","source"]
 		return function(obj){
 				return !str
 					|| obj.match && str.match(obj.match)
-					|| keys.some(k=>obj[k] && obj[k].toLowerCase && obj[k].toLowerCase().find(lc))
+					|| keys.some(k=>obj[k] && obj[k].toLowerCase && obj[k].toLowerCase().includes(lc))
 			}
 		}
 	function labelize(str){
@@ -246,17 +263,17 @@ function getHashObj(){
 		)
 	}
 function obj2Hash(obj){
-	return ('#'
-		+ (obj.path ? encodeURIComponent(obj.path).replace(/%2F/ig,'/'):'')
-		+ Object.entries(obj)
-		.filter(([k,v])=>k!=='path')
-		.map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v))
-		)
+	return ('#'+[
+		...(obj.path ? [encodeURIComponent(obj.path).replace(/%2F/ig,'/')]:[]),
+		...Object.entries(obj)
+			.filter(([k,v])=>k!=='path')
+			.map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v))
+		].join('&'))
 	}
 function getAuthUrl(instance,state){
 	return (
-		`https://${instance.lkrHost}`
-		+instance.lkrUiPort?'':`:${instance.lkrUiPort}`
+		"https://"+instance.lkrHost
+		+(instance.lkrUiPort?'':`:${instance.lkrUiPort}`)
 		+`/embed/explore/${instance.lkrModel}/${instance.lkrExplore}.html`
 		+`?fields=${instance.lkrExplore}.get_signature`
 		+`&f[${instance.lkrExplore}.external_url]=`
@@ -267,29 +284,31 @@ function getAuthUrl(instance,state){
 		)
 	}
 
-function api(endpoint,{token, qs={}, body}={}){
-	let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
-	let method = match[1]||"GET"
-	let path = match[2]
-	return $.ajax({
-		method,
-		url: ("https://"+config.cloudFunctions.host
-			+"/"+config.cloudFunctions.corsPath
-			+"/"+config.lookerHost+(config.lookerApiPort=="443"?"":`:${config.lookerApiPort}`)
-			+"/api/3.0/"+path
-			+(method.includes("?")?"&":"?")
-			+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
-			),
-		contentType: 'application/json',
-		dataType: 'json',
-		...(method!="GET"?{data: JSON.stringify(body)}:{}),
-		headers:{"Authorization":"token "+(token||globalToken)}
-		})
-	}
+// function api(endpoint,{token, qs={}, body}={}){
+// 	let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
+// 	let method = match[1]||"GET"
+// 	let path = match[2]
+// 	return $.ajax({
+// 		method,
+// 		url: ("https://"+config.cloudFunctions.host
+// 			+"/"+config.cloudFunctions.corsPath
+// 			+"/"+config.lookerHost+(config.lookerApiPort=="443"?"":`:${config.lookerApiPort}`)
+// 			+"/api/3.0/"+path
+// 			+(method.includes("?")?"&":"?")
+// 			+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
+// 			),
+// 		contentType: 'application/json',
+// 		dataType: 'json',
+// 		...(method!="GET"?{data: JSON.stringify(body)}:{}),
+// 		headers:{"Authorization":"token "+(token||globalToken)}
+// 		})
+// 	}
 function getNonce(len = 8){
 	let arr = new Uint8Array(len / 2)
 	window.crypto.getRandomValues(arr)
 	return Array.from(arr).map(int=>'0'+int.toString(16).slice(-2)).join('')
 	}
+
+}()
 </script>
 </html>

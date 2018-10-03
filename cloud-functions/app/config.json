@@ -2,9 +2,19 @@
 	"instances":[
 		{	"id":"default",
 			"label": "Sandbox",
-			"lookerHost": "sanboxcl.dev.looker.com",
-			"lookerUiPort":"9999",
-			"lookerApiPort":"19999",
+			"lkrHost": "sanboxcl.dev.looker.com",
+			"lkrUiPort":"9999",
+			"lkrApiPort":"19999",
+			"cfnHost":"us-central1-data-proto.cloudfunctions.net",
+			"cfnAuth": "function-3",
+			"cfnCors": "cors"
+			},
+		{	"id":"also-sandbox",
+			"description": "Just like the other instance! Oh, and this one tries to do the auth in an iframe instead of a popup",
+			"authWindow":"embed",
+			"lkrHost": "sanboxcl.dev.looker.com",
+			"lkrUiPort":"9999",
+			"lkrApiPort":"19999",
 			"cfnHost":"us-central1-data-proto.cloudfunctions.net",
 			"cfnAuth": "function-3",
 			"cfnCors": "cors"
