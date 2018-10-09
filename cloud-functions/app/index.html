@@ -128,7 +128,7 @@ const actions = {
 	authFinish: ({instance,session,externalStateId}) => state => {
 		let externalStates = tryJsonParse(localStorage.getItem("externalStates"))
 		let externalState = externalStates[externalStateId]
-		window.location=obj2Hash(externalState.route||{})
+		window.location='#'+obj2Uri(externalState.route||{})
 		delete externalStates[externalStateId]
 		localStorage.setItem("externalStates",JSON.stringify(externalStates))
 
@@ -192,7 +192,11 @@ function view(){
 				div({class:"hostname"},instance.label||labelize(instance.id)||"No instance"),
 				iframe({class:"script-iframe",
 					sandbox:script.sandbox||"allow-scripts",
-					src: script.src+"/index.html"
+					src: script.src+"/index.html#"+obj2Uri({
+						token:instance.session.access_token,
+						cfnCors: instance.cfnCors,
+						lkrApiHost: instance.lkrApiHost
+						})
 					})
 				]),
 			'*':div({class:'page'},[
@@ -208,7 +212,7 @@ function view(){
 						div({class:'description'},inst.description||""),
 						select(
 							{onchange: evt => evt.target.value
-								&& (document.location=obj2Hash({path:"/run",instance:inst.id,script:evt.target.value}))
+								&& (document.location='#'+obj2Uri({path:"/run",instance:inst.id,script:evt.target.value}))
 								&& (evt.target.value = '')
 								},
 							[	option({value:"",selected:true},""),
@@ -226,11 +230,11 @@ function view(){
 						div({class:'description'},scr.description||""),
 						Object.keys(s.instances).length==1
 						? button(
-							{onclick:evt=>document.location=obj2Hash({path:"/run",instance:Object.keys(s.instances)[0].id,script:scr.id})},
+							{onclick:evt=>document.location='#'+obj2Uri({path:"/run",instance:Object.keys(s.instances)[0].id,script:scr.id})},
 							Object.keys(s.instances)[0].label||labelize(Object.keys(s.instances)[0].id)
 							)
 						: select(
-							{onchange:evt=>document.location=obj2Hash({path:"/run",instance:evt.target.value,script:scr.id})},
+							{onchange:evt=>document.location='#'+obj2Uri({path:"/run",instance:evt.target.value,script:scr.id})},
 							[	option({value:"",selected:true},""),
 								...Object.values(s.instances)
 								.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
@@ -278,13 +282,13 @@ function getHashObj(){
 			.reduce((aa,a)=>({[decodeURIComponent(a[0])]:decodeURIComponent(a.slice(1).join('=')), ...aa}),{})
 		)
 	}
-function obj2Hash(obj){
-	return ('#'+[
+function obj2Uri(obj){
+	return [
 		...(obj.path ? [encodeURIComponent(obj.path).replace(/%2F/ig,'/')]:[]),
 		...Object.entries(obj)
 			.filter(([k,v])=>k!=='path')
 			.map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v))
-		].join('&'))
+		].join('&')
 	}
 function getAuthUrl(instance,state){
 	return (

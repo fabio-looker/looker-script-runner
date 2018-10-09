@@ -1,6 +1,6 @@
 <html><head>
 <script>
-let pageQuery = document.location.search.slice(1).split('&')
+let hashArguments = document.location.hash.slice(1).split('&')
 	.map(pair=>pair.split('='))
 	.reduce((obj,parts)=>({...obj,[decodeURIComponent(parts[0])]:decodeURIComponent(parts.slice(1).join('='))}),{})
 function api(endpoint,{token, qs={}, body}={}){
@@ -10,13 +10,13 @@ function api(endpoint,{token, qs={}, body}={}){
 		let path = match[2]
 		let request = new XMLHttpRequest()
 		request.open(method, 
-			"https://"+pageQuery.cfnCors+"/"+pageQuery.lkrApiHost
+			"https://"+hashArguments.cfnCors+"/"+hashArguments.lkrApiHost
 			+"/api/3.0/"+path
 			+(method.includes("?")?"&":"?")
 			+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
 			, true)
 		if(method!="GET"){request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')}
-		request.setRequestHeader('Authorization', "token "+(token||pageQuery.token))
+		request.setRequestHeader('Authorization', "token "+(token||hashArguments.token))
 		request.onload = res
 		request.onerror = rej
 		request.send(body==undefined?undefined:JSON.stringify(body))
