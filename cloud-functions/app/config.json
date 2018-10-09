@@ -19,11 +19,11 @@
 	"scripts": [
 		{	"id":"unused-content",
 			"type": "client-api",
-			"link": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/broken-link"
+			"src": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/broken-link"
 			},
 		{	"id":"who-am-i",
 			"type": "client-api",
-			"link": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/who-am-i"
+			"src": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/who-am-i"
 			}
 		]
 	}

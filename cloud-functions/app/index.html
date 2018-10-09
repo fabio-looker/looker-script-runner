@@ -191,7 +191,7 @@ function view(){
 				div({class:"section header"},script.label||labelize(script.id)||"No script"),
 				div({class:"hostname"},instance.label||labelize(instance.id)||"No instance"),
 				iframe({class:"script-iframe",
-					sandbox:script.sandbox||"sandbox allow-scripts",
+					sandbox:script.sandbox||"allow-scripts",
 					src: script.src+"/index.html"
 					})
 				]),

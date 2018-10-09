@@ -8,7 +8,7 @@ function api(endpoint,{token, qs={}, body}={}){
 		let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
 		let method = match[1]||"GET"
 		let path = match[2]
-		let req = new XMLHttpRequest()
+		let request = new XMLHttpRequest()
 		request.open(method, 
 			"https://"+pageQuery.cfnCors+"/"+pageQuery.lkrApiHost
 			+"/api/3.0/"+path
