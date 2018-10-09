@@ -2,39 +2,28 @@
 	"instances":[
 		{	"id":"default",
 			"label": "Sandbox",
-<<<<<<< HEAD
-			"lkrHost": "sanboxcl.dev.looker.com",
-			"lkrUiPort":"9999",
-			"lkrApiPort":"19999",
-			"cfnHost":"us-central1-data-proto.cloudfunctions.net",
-			"cfnAuth": "function-3",
-			"cfnCors": "cors"
+			"lkrUiHost":"sandboxcl.dev.looker.com",
+			"lkrApiHost":"sandboxcl.dev.looker.com:19999",
+			"cfnAuth":"us-central1-data-proto.cloudfunctions.net/function-3",
+			"cfnCors": "us-central1-data-proto.cloudfunctions.net/cors"
 			},
 		{	"id":"also-sandbox",
 			"description": "Just like the other instance! Oh, and this one tries to do the auth in an iframe instead of a popup",
 			"authWindow":"embed",
-			"lkrHost": "sanboxcl.dev.looker.com",
-			"lkrUiPort":"9999",
-			"lkrApiPort":"19999",
-			"cfnHost":"us-central1-data-proto.cloudfunctions.net",
-			"cfnAuth": "function-3",
-			"cfnCors": "cors"
-=======
 			"lkrUiHost":"sanboxcl.dev.looker.com",
 			"lkrApiHost":"sanboxcl.dev.looker.com:19999",
 			"cfnAuth":"us-central1-data-proto.cloudfunctions.net/function-3",
-			"cfnCors": "us-central1-data-proto.cloudfunctions.net/function-3"
->>>>>>> a739aa1ba21d33a6576a0b6146be1d41b298c2c9
+			"cfnCors":"us-central1-data-proto.cloudfunctions.net/cors"
 			}
 		],
 	"scripts": [
 		{	"id":"unused-content",
 			"type": "client-api",
-			"source": "/example-1.script.json"
+			"link": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/broken-link"
 			},
-		{	"id":"example2",
+		{	"id":"who-am-i",
 			"type": "client-api",
-			"source": "/example-2.script.json"
+			"link": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/who-am-i"
 			}
 		]
 	}

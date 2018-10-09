@@ -8,13 +8,13 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/hyperapp/1.2.5/hyperapp.js" integrity="sha256-EO1vRmcxDsotgvYvFuhhr9KbV3zX4a0uop87FBqNVwo=" crossorigin="anonymous"></script>
 	<style>
 	html,body{color:#444;background-color: #fff}
-	#main{display:flex; flex-direction: column; min-width:600px; max-width:1600px; width:90%; margin-left:auto; margin-right:auto;}
+	.page{display:flex; flex-direction: column; min-width:600px; max-width:1600px; width:90%; margin-left:auto; margin-right:auto;}
 	.overlay{position:fixed;top:0;bottom:0;left:0;right:0;background: rgba(0,0,0,0.3)}
 	.lightbox{position:relative;height:640px;width:480px;margin:auto;display:flex;justify-content:center;}
 	#popup{position:absolute;top:1em;right:1em;text-align:center;height:2em;width:2em;border-radius:50%;background:white}
 	#auth iframe {height:100%;width:100%}
 	#omni {height:1.5em;margin:1em 0;}
-	div.card-section {border-bottom: 1px solid #333; font-size:1.4em; font-weight: bold}
+	div.section-header {border-bottom: 1px solid #333; font-size:1.4em; font-weight: bold}
 	div.card-container {display: flex; flex-direction: row; justify-content: center;}
 	div.card {width:30%; height:6.8em; margin:1em 8px; border-radius:0.5em;box-shadow:2px 2px 4px 4px rgba(0,0,0,0.3);padding:0.5em }
 	div.card .label {border-bottom:1px solid #999; background:linear-gradient(to bottom, #fff 0%, #eee 100%);color:#111;font-weight:bold}
@@ -22,52 +22,67 @@
 	div.card .session {display:inline-block; vertical-align: center; height:0.8em;width:0.8em;border-radius: 0.4em;margin-right: 0.4em}
 	div.card .session.active {background-color:#cfd}
 	div.card .session.inactive {background-color:#ccc}
-
+	.hostname {font-size: 0.8em; color:#666;}
 	</style>
 </head>
 <body>
 </body>
 <script>
 var run
-!async function main(){
+(async function main(){
+
+window.name = "runner"
+const instanceDefaults = {
+	"lkrModel":"embed_api_auth",
+	"lkrExplore":"auth",
+	"lkrDash":"init",
+	"authWindow":"popup"
+	}
+const priorSessions = tryJsonParse(localStorage.getItem("sessions"),{})
+const config = await $.getJSON("/config.json")
+const state = {
+	route:{path:""},
+	scriptId:"",
+	scripts:(config.scripts||[])
+		.filter(s=>s.id)
+		.map(s=>({...s,status:'pending'}))
+		.reduce(byId,{}),
+	instanceId:"",
+	instances:(config.instances||[])
+		.filter(i=>i.id)
+		.map(i=>({...instanceDefaults,...i,session:priorSessions[i.id]}))
+		.reduce(byId,{}),
+	authUrl:"",
+	popups:{},
+	lastExpired:Date.now()
+	}
 
 const actions = {
 	state: value => state => state,
-	omni: value => state => {document.location="#list&q="+encodeURIComponent(value)},
-	addScript: script => state => {
-		let relevantPairings = config.pairings.filter(p=>p.scripts.test(script.id))
-		let pairedScript = {
-			...script,
-			pairings:state.instances.filter(inst => relevantPairings.some(p=>p.instances.test(inst.id)))
-			}
-		let pairedInstances = state.instances.map(inst => ({
-			...inst,
-			...relevantPairings.some(p=>p.instances.test(inst.id))
-				? {pairings:inst.pairings.concat(pairedScript)}
-				: {}
-			}))
-		return {
-			scripts:state.scripts.concat(pairedScript),
-			scriptsById:{...state.scriptsById,[pairedScript.id]:pairedScript},
-			instances:pairedInstances,
-			instancesById:pairedInstances.reduce(byId,{})
-			}
-		},
+	omni: value => state => {document.location="#q="+encodeURIComponent(value)},
+	setScript: script => state => ({scripts:{...state.scripts,[script.id]:script}}),
+	expire: () => state => {lastExpired:Date.now()},
 	route: route => state => {
 		console.log("Route",route)
+		if(!route){route = state.route}
 		if(route.path && route.path[0]==='/' && run[route.path]){
 			run[route.path](route)
 			}
 		return {route}
 		},
 	'/run': route => state => {
-		let instance = state.instancesById[route.instance]
+		let instanceId = route.instance
+		let scriptId = route.script
+		let instance = state.instances[instanceId]
+		let script = state.scripts[scriptId]
 		if(!instance.session || !instance.session.expiresAt>Date.now()){
-			run.authInit(instance)
+			run.authInit({instance,route})
 			return
 			}
+		return {instanceId,scriptId}
 		},
-	authInit: instance => state => {
+	authInit: ({instance,route}) => state => {
+		window.location="#/auth/pending"
 		if(instance.session && instance.session.expiresAt>Date.now()){return}
 		//Prep for XSRF protection
 		let externalStateId = getNonce()
@@ -75,36 +90,36 @@ const actions = {
 			...tryJsonParse(localStorage.getItem("externalStates"),{}),
 			[externalStateId]:{
 				instanceId:instance.id,
-				route: state.route
+				route: route || state.route
 				}
 			}))
 		let authUrl = getAuthUrl(instance, externalStateId)
-		console.log(instance);
-		console.log(authUrl);
+		let popup = {}
 		if(instance.authWindow==="popup"){
-			window.open(authUrl,"auth-popup","height=640,width=480,top=160,left=320")
+			popup[externalStateId] = window.open(authUrl,"auth-popup","height=640,width=480,top=160,left=320")
 			}
 		else if(instance.authWindow==="top"){
 			document.location = authUrl
 			}
-		return {authUrl}
+		return {authUrl,popup:{...state.popup, ...popup}}
 		},
 	'/auth/claim': route => state => {
 		window.location="#/auth/pending"
 		let externalStates = tryJsonParse(localStorage.getItem("externalStates"),{})
 		let externalStateId = route.state
 		let externalState = externalStates[externalStateId]
-		if (!state){throw "Invalid state in claim"} // Guard against XSRF
-		let instance = instancesById[externalState.instanceId]
+		if (!externalState){throw "Invalid state in claim"} // Guard against XSRF
+		let instance = state.instances[externalState.instanceId]
 		if (!instance
 			|| !instance.cfnAuth
 			){throw "Invalid instance"}
+		if(state.popup[externalStateId]){state.popup[externalStateId].close()}
 		$.getJSON(
 			"https://"+instance.cfnAuth
-			+"?aud="+encodeURIComponent(h.aud)
-			+"&exp="+encodeURIComponent(h.exp)
-			+"&sub="+encodeURIComponent(h.sub)
-			+"&sig="+encodeURIComponent(h.sig)
+			+"?aud="+encodeURIComponent(route.aud)
+			+"&exp="+encodeURIComponent(route.exp)
+			+"&sub="+encodeURIComponent(route.sub)
+			+"&sig="+encodeURIComponent(route.sig)
 			+(config.debug?"&debug="+encodeURIComponent(config.debug):"")
 			)
 		.then(session=>run.authFinish({instance,session,externalStateId}))
@@ -118,116 +133,118 @@ const actions = {
 		localStorage.setItem("externalStates",JSON.stringify(externalStates))
 
 		if(!session.access_token){throw authResult}
-		session.expiresAt = Date.now() + instance.auth.expires_in*1000
-		localStorage.setItem("sessions",{
+		session.expiresAt = Date.now() + session.expires_in*1000
+		setTimeout(run.state, session.expires_in*1000) //Refresh views when a session expires
+		localStorage.setItem("sessions",JSON.stringify({
 			...tryJsonParse(localStorage.getItem("sessions")),
 			[instance.id]:session
-			})
-		setTimeout(run.state, instance.auth.expires_in*1000) //Refresh views when a session expires
+			}))
+		let updatedInstance = {...instance,session}
+		return {
+			instances:{...state.instances, [updatedInstance.id]:updatedInstance}
+			}
 		}
 	}
 
 
-window.name = "runner"
-const instanceDefaults = {
-	"lkrModel":"embed_api_auth",
-	"lkrExplore":"auth",
-	"lkrDash":"init",
-	"authWindow":"popup"
-	}
-const priorSessions = tryJsonParse(localStorage.getItem("sessions"),{})
-const config = await $.getJSON("/config.json")
-config.instances = (config.instances||[]).filter(i=>i.id).map(i=>({
-	...instanceDefaults,
-	...i,
-	session:priorSessions[i.id],
-	pairings:[]
-	}))
-config.scripts = (config.scripts||[]).filter(s=>s.id && s.source)
-config.pairings = (config.pairings||[{}]).map(pair=>({
-		instances:	new RegExp("^("+(pair.instances||".*")+")$"),
-		scripts:	new RegExp("^("+(pair.scripts  ||".*")+")$")
-	}))
 
-const state = {
-	route:{path:""},
-	scripts:[],
-	scriptsById:{},
-	instances:config.instances,
-	instancesById:config.instances.reduce(byId,{}),
-	authUrl:""
-	}
 
 run = hyperapp.app(state,actions,view(),document.body)
 config.scripts.forEach(async s => {
-	run.addScript({...await $.getJSON(s.source),...s})
+	try{
+		run.setScript({...await $.getJSON(s.src+"/manifest.json"),...s,status:'resolved'})
+		run.route()  //In case we just loaded
+		}
+	catch(e){
+		run.setScript({...s,status:'rejected',error:e})
+		}
 	})
-Object.values(priorSessions).forEach(s => setTimeout(run.state,s.expiresAt-Date.now()))
+Object.values(priorSessions).forEach(s => setTimeout(run.expire,s.expiresAt-Date.now()))
 run.route(getHashObj())
 window.addEventListener("hashchange",()=>run.route(getHashObj()))
 
 function view(){
 	const {h} = hyperapp
-	const [div,span,input,img,select,option,iframe,anchor]
-		= 'div,span,input,img,select,option,iframe,a'.split(',')
+	const [div,span,input,img,select,option,iframe,button,anchor]
+		= 'div,span,input,img,select,option,iframe,button,a'.split(',')
 		.map(tag => (o,a)=>h(tag,o,a))
-	return (s,a) => div({id:'main'},[
-		(s.route.path||'').startsWith('/auth')
-			? div({class:'auth overlay'},[
-				div({class:'lightbox'},{
-					'/auth/init':[
+	const endscript = '<'+'/'+'scr'+'ipt>'
+	const pathParts = (s,part) => (s.route.path||'').split('/').slice(1)
+	return (s,a) => {
+		let script = s.scripts[s.scriptId]||{}
+		let instance = s.instances[s.instanceId]||{}
+		return which(pathParts(s,0),{
+			'auth':div({class:'auth overlay'},[
+				//TODO add UI to close
+				div({class:'lightbox'},which(pathParts(s,2),{
+					'init':[
 						anchor({id:'popup',target:'popup',
 							href:s.authUrl
 							},"⧉"),
 						iframe({id:'auth-ifr',src:s.authUrl})
 						],
-					'/auth/claim':[div({},"Validating access...")],
-					'/auth/pending':[div({},"Validating access...")]
-					}[s.route.path])
+					'claim':[div({},"Validating access...")],
+					'pending':[div({},"Validating access...")]
+					}))
+				]),
+			'run':div({class:'page'},[
+				div({class:"section header"},script.label||labelize(script.id)||"No script"),
+				div({class:"hostname"},instance.label||labelize(instance.id)||"No instance"),
+				iframe({class:"script-iframe",
+					sandbox:script.sandbox||"sandbox allow-scripts",
+					src: script.src+"/index.html"
+					})
+				]),
+			'*':div({class:'page'},[
+				input({type:'text',id:'omni',value:s.route.q,onkeyup:evt=>a.omni(evt.target.value)}),
+				div({class:'section-header'},"Instances"),
+				div({class:'card-container'},Object.values(s.instances).filter(search(s.route.q)).map(inst =>
+					div({class:'card'},[
+						div({class:'label'},[
+							span({class:'session '+(inst.session?'active':'inactive')},' '),
+							inst.label||labelize(inst.id)
+							]),
+						img({class:'icon',src:inst.icon}),
+						div({class:'description'},inst.description||""),
+						select(
+							{onchange: evt => evt.target.value
+								&& (document.location=obj2Hash({path:"/run",instance:inst.id,script:evt.target.value}))
+								&& (evt.target.value = '')
+								},
+							[	option({value:"",selected:true},""),
+								...Object.values(s.scripts)
+								.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
+								]
+							)
+						]),
+					)),
+				div({class:'section-header'},"Scripts"),
+				div({class:'card-container'},Object.values(s.scripts).filter(search(s.route.q)).map(scr =>
+					div({class:'card'},[
+						div({class:'label'},scr.label||labelize(scr.id)),
+						img({class:'icon',src:scr.icon}),
+						div({class:'description'},scr.description||""),
+						Object.keys(s.instances).length==1
+						? button(
+							{onclick:evt=>document.location=obj2Hash({path:"/run",instance:Object.keys(s.instances)[0].id,script:scr.id})},
+							Object.keys(s.instances)[0].label||labelize(Object.keys(s.instances)[0].id)
+							)
+						: select(
+							{onchange:evt=>document.location=obj2Hash({path:"/run",instance:evt.target.value,script:scr.id})},
+							[	option({value:"",selected:true},""),
+								...Object.values(s.instances)
+								.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
+								]
+							)
+						])
+					))
 				])
-			: undefined,
-		input({type:'text',id:'omni',value:s.route.q,onkeyup:evt=>a.omni(evt.target.value)}),
-		div({class:'card-section'},"Instances"),
-		div({class:'card-container'},s.instances.filter(search(s.route.q)).map(inst =>
-			div({class:'card'},[
-				div({class:'label'},[
-					span({class:'session '+(inst.session?'active':'inactive')},' '),
-					inst.label||labelize(inst.id)
-					]),
-				img({class:'icon',src:inst.icon}),
-				div({class:'description'},inst.description||""),
-				select(
-					{onchange: evt => evt.target.value
-						&& (document.location=obj2Hash({path:"/run",instance:inst.id,script:evt.target.value}))
-						&& (evt.target.value = '')
-						},
-					[	option({value:"",selected:true},""),
-						...inst.pairings
-						.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
-						]
-					)
-				])
-			)),
-		div({class:'card-section'},"Scripts"),
-		div({class:'card-container'},s.scripts.filter(search(s.route.q)).map(scr =>
-			div({class:'card'},[
-				div({class:'label'},scr.label||labelize(scr.id)),
-				img({class:'icon',src:scr.icon}),
-				div({class:'description'},scr.description||""),
-				select(
-					{onchange:evt=>document.location=obj2Hash({path:"/run",instance:evt.target.value,script:scr.id})},
-					[	option({value:"",selected:true},""),
-						...scr.pairings
-						.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
-						]
-					)
-				]))
-			)
-		])
+			})
+		}
 
 	function search(str){
 		let lc = (str||'').toLowerCase()
-		let keys = ["id","label","description","lkrHost","source"]
+		let keys = ["id","label","description","lkrHost","link"]
 		return function(obj){
 				return !str
 					|| obj.match && str.match(obj.match)
@@ -235,10 +252,15 @@ function view(){
 			}
 		}
 	function labelize(str){
-		return str.replace(/[-_]/g," ").replace(/( |^)[a-z]/g,m=>m.toUpperCase())
+		return (str||'').replace(/[-_]/g," ").replace(/( |^)[a-z]/g,m=>m.toUpperCase())
+		}
+	function unindent(glue, ...vars){
+		return (glue[0]+glue.slice(1).map((part,p)=>vars[p]+part).join('')).replace(/\n\t+/g,"\n")
 		}
 	}
+
 function byId(obj,item){return {...obj,[item.id]:item}}
+function which(key,lookup){return lookup[key]||lookup['*']}
 function tryJsonParse(str,dft){
 	if(typeof str!="string"){return dft}
 	try{return JSON.parse(str)}catch(e){return dft}
@@ -278,31 +300,12 @@ function getAuthUrl(instance,state){
 		)
 	}
 
-// function api(endpoint,{token, qs={}, body}={}){
-// 	let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
-// 	let method = match[1]||"GET"
-// 	let path = match[2]
-// 	return $.ajax({
-// 		method,
-// 		url: ("https://"+config.cloudFunctions.host
-// 			+"/"+config.cloudFunctions.corsPath
-// 			+"/"+config.lookerHost+(config.lookerApiPort=="443"?"":`:${config.lookerApiPort}`)
-// 			+"/api/3.0/"+path
-// 			+(method.includes("?")?"&":"?")
-// 			+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
-// 			),
-// 		contentType: 'application/json',
-// 		dataType: 'json',
-// 		...(method!="GET"?{data: JSON.stringify(body)}:{}),
-// 		headers:{"Authorization":"token "+(token||globalToken)}
-// 		})
-// 	}
 function getNonce(len = 8){
 	let arr = new Uint8Array(len / 2)
 	window.crypto.getRandomValues(arr)
-	return Array.from(arr).map(int=>'0'+int.toString(16).slice(-2)).join('')
+	return Array.from(arr).map(int=>('0'+int.toString(16)).slice(-2)).join('')
 	}
 
-}()
+})().catch(e => console.error(e))
 </script>
 </html>
