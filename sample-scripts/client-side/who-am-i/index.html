@@ -3,31 +3,37 @@
 let hashArguments = document.location.hash.slice(1).split('&')
 	.map(pair=>pair.split('='))
 	.reduce((obj,parts)=>({...obj,[decodeURIComponent(parts[0])]:decodeURIComponent(parts.slice(1).join('='))}),{})
-function api(endpoint,{token, qs={}, body}={}){
-	return new Promise((res,rej)=>{
-		let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
-		let method = match[1]||"GET"
-		let path = match[2]
-		let request = new XMLHttpRequest()
-		request.open(method, 
-			"https://"+hashArguments.cfnCors+"/"+hashArguments.lkrApiHost
-			+"/api/3.0/"+path
-			+(method.includes("?")?"&":"?")
-			+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
-			, true)
-		if(method!="GET"){request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')}
-		request.setRequestHeader('Authorization', "token "+(token||hashArguments.token))
-		request.onload = res
-		request.onerror = rej
-		request.send(body==undefined?undefined:JSON.stringify(body))
-		})
+async function api(endpoint,{token, qs={}, body}={}){
+	let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
+	let method = match[1]||"GET"
+	let path = match[2]
+	let headers = {
+			'Authorization':'token '+(token||hashArguments.token),
+			'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+		}
+	let response = await fetch(
+		"https://"+hashArguments.cfnCors+"/"+hashArguments.lkrApiHost
+		+"/api/3.0/"+path
+		+(method.includes("?")?"&":"?")
+		+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
+		,{method,headers,body:body!==undefined?JSON.stringify(body):undefined}
+		)
+	if(!response.ok){throw response.statusText}
+	return await response.json()
 	}
 </script>
+<style>
+	img{height:6em;width:6em;border-radius:50%;}
+	p{margin:0 2em;text-indent:-2em}</style>
+</style>
+</head>
 <body></body>
 <script>
 !async function(){
-
-document.body.innerHTML = JSON.stringify(await api("user"),undefined,2)
+let user = await api("user")
+document.body.innerHTML = `<img src="${user.avatar_url}" /><div>`
+	+ Object.entries(user).map(([k,v])=>`<p><b>${k}:</b> ${typeof v=='string'?v:JSON.stringify(v)}</p>`).join('')
+	+ "</div>"
 
 }()
 </script>

@@ -2,28 +2,21 @@
 	"instances":[
 		{	"id":"default",
 			"label": "Sandbox",
+			"description":"One of several instances that can be simultanously connected",
 			"lkrUiHost":"sandboxcl.dev.looker.com",
 			"lkrApiHost":"sandboxcl.dev.looker.com:19999",
 			"cfnAuth":"us-central1-data-proto.cloudfunctions.net/function-3",
 			"cfnCors": "us-central1-data-proto.cloudfunctions.net/cors"
-			},
-		{	"id":"also-sandbox",
-			"description": "Just like the other instance! Oh, and this one tries to do the auth in an iframe instead of a popup",
-			"authWindow":"embed",
-			"lkrUiHost":"sanboxcl.dev.looker.com",
-			"lkrApiHost":"sanboxcl.dev.looker.com:19999",
-			"cfnAuth":"us-central1-data-proto.cloudfunctions.net/function-3",
-			"cfnCors":"us-central1-data-proto.cloudfunctions.net/cors"
 			}
 		],
 	"scripts": [
 		{	"id":"unused-content",
 			"type": "client-api",
-			"src": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/broken-link"
+			"src": "../../sample-scripts/client-side/unused-content"
 			},
 		{	"id":"who-am-i",
 			"type": "client-api",
-			"src": "https://fabio-looker.github.io/looker-script-runner/sample-scripts/client-side/who-am-i"
+			"src": "../../sample-scripts/client-side/who-am-i"
 			}
 		]
 	}

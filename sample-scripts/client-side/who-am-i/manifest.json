@@ -1,5 +1,5 @@
 {
 	"matches":"/looks/[0-9]+",
 	"label":"Who am I?",
-	"source":"/example-1.script.js"
+	"description":"The \"Hello world!\" example, this just shows info about the authenticated user"
 }
