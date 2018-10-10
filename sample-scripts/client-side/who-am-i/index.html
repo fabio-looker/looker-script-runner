@@ -32,9 +32,10 @@ async function api(endpoint,{token, qs={}, body}={}){
 !async function(){
 let user = await api("user")
 document.body.innerHTML = `<img src="${user.avatar_url}" /><div>`
-	+ Object.entries(user).map(([k,v])=>`<p><b>${k}:</b> ${typeof v=='string'?v:JSON.stringify(v)}</p>`).join('')
+	+ Object.entries(user)
+		.filter(([k,v])=>!k.match(/credential|access/))
+		.map(([k,v])=>`<p><b>${k}:</b> ${typeof v=='string'?v:JSON.stringify(v)}</p>`).join('')
 	+ "</div>"
-
 }()
 </script>
 </html>
