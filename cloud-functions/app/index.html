@@ -7,24 +7,25 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/hyperapp/1.2.5/hyperapp.js" integrity="sha256-EO1vRmcxDsotgvYvFuhhr9KbV3zX4a0uop87FBqNVwo=" crossorigin="anonymous"></script>
 	<style>
-	html,body{color:#444;background-color: #fff}
-	.page{display:flex; flex-direction: column; min-width:600px; max-width:1600px; width:90%; margin-left:auto; margin-right:auto;}
+	html,body{color:#444;background-color: #fff;margin:0}
+	#top-bar {height:3em;background-color: #333;color:#eee;padding-left:4em}
+	a#return{position:absolute;top:0;left:0.5em;text-align: center;vertical-align: middle;text-decoration: none; font-size: 2em; color:#eee}
+	#main {display:flex; flex-direction: column; min-width:600px; max-width:1600px; width:90%; margin-left:auto; margin-right:auto;}
 	.overlay{position:fixed;top:0;bottom:0;left:0;right:0;background: rgba(0,0,0,0.3)}
 	.lightbox{position:relative;height:640px;width:480px;margin:auto;display:flex;justify-content:center;}
 	#popup{position:absolute;top:1em;right:1em;text-align:center;height:2em;width:2em;border-radius:50%;background:white}
 	#auth iframe {height:100%;width:100%}
-	#omni {height:1.5em;margin:1em 0;}
+	#omni {height:1.5em;margin:1em 0;color:#333;background-color: #fff;position:relative;margin-left:auto;margin-right:auto;width:80vw}
 	div.section-header {border-bottom: 1px solid #333; font-size:1.4em; font-weight: bold}
 	div.card-container {display: flex; flex-direction: row; justify-content: center;}
 	div.card {width:30%; height:6.8em; margin:1em 8px; border-radius:0.5em;box-shadow:2px 2px 4px 4px rgba(0,0,0,0.3);padding:0.5em }
 	div.card .label {border-bottom:1px solid #999; background:linear-gradient(to bottom, #fff 0%, #eee 100%);color:#111;font-weight:bold}
 	div.card .description {max-height:2.2em; overflow:hidden; text-overflow: ellipsis;}
-	div.card .session {display:inline-block; vertical-align: center; height:0.8em;width:0.8em;border-radius: 0.4em;margin-right: 0.4em}
+	div.card .session {display:inline-block; vertical-align: middle; height:0.8em;width:0.8em;border-radius: 0.4em;margin-right: 0.4em}
 	div.card .session.active {background-color:#cfd}
 	div.card .session.inactive {background-color:#ccc}
-	.hostname {font-size: 0.8em; color:#666;}
+	.hostname {font-size: 0.8em; color:#999;}
 	iframe.script-iframe {width: 100%; height:800px; border:0}
-	a.closer{position:absolute;top:1em;right:1em;height:2em;width:2em;text-align: center;vertical-align: center;text-decoration: none;border-radius:50%;color:#666;backgroud-color:#fec;box-shadow: 10px 10px 28px 0px rgba(0,0,0,0.75);}
 	</style>
 </head>
 <body>
@@ -181,7 +182,7 @@ function view(){
 		let instance = s.instances[s.instanceId]||{}
 		return which(pathParts(s,0),{
 			'auth':div({class:'auth overlay'},[
-				a({class:"closer",href:"#"},'x'),
+				//TODO : status & cancel UI
 				div({class:'lightbox'},which(pathParts(s,2),{
 					'init':[
 						a({id:'popup',target:'popup',
@@ -193,72 +194,80 @@ function view(){
 					'pending':[div({},"Validating access...")]
 					}))
 				]),
-			'run':div({class:'page'},[
-				a({class:"closer",href:"#"},'x'),
-				div({class:"section header"},script.label||labelize(script.id)||"No script"),
-				div({class:"hostname"},instance.label||labelize(instance.id)||"No instance"),
-				((script && instance && instance.session)
-					? iframe({class:'script-iframe',
-						sandbox:script.sandbox||"allow-scripts",
-						src: script.src+"/index.html#"+obj2Uri({
-							token:instance.session.access_token,
-							cfnCors: instance.cfnCors,
-							lkrApiHost: instance.lkrApiHost
+			'run':div({},[
+				div({id:"top-bar"},[
+					a({id:"return",href:"#"},'<'),
+					div({class:"section header"},script.label||labelize(script.id)||"No script"),
+					div({class:"hostname"},instance.label||labelize(instance.id)||"No instance"),
+					]),
+				div({class:'main'},[
+					((script && instance && instance.session)
+						? iframe({class:'script-iframe',
+							sandbox:script.sandbox||"allow-scripts",
+							src: script.src+"/index.html#"+obj2Uri({
+								token:instance.session.access_token,
+								cfnCors: instance.cfnCors,
+								lkrApiHost: instance.lkrApiHost
+								})
 							})
-						})
-					: (instance
-						? a({onclick:()=>run.authInit({instance})},"Please authenticate first")
-						: a({href:"#q="+(s.instanceId||'')},"No such instance, try searching")
+						: (instance
+							? a({onclick:()=>run.authInit({instance})},"Please authenticate first")
+							: a({href:"#q="+(s.instanceId||'')},"No such instance, try searching")
+							)
 						)
-					)
+					])
 				]),
-			'*':div({class:'page'},[
-				input({type:'text',id:'omni',value:s.route.q,onkeyup:evt=>run.omni(evt.target.value)}),
-				div({class:'section-header'},"Instances"),
-				div({class:'card-container'},Object.values(s.instances).filter(search(s.route.q)).map(inst =>
-					div({class:'card'},[
-						div({class:'label'},[
-							span({class:'session '+((inst.session && inst.session.expiresAt > s.lastExpired)
-								?'active'
-								:'inactive'
-								)},' '),
-							inst.label||labelize(inst.id)
+			'*':div({},[
+				div({id:'top-bar'},[
+					input({type:'text',id:'omni',value:s.route.q,onkeyup:evt=>run.omni(evt.target.value)})
+					]),
+				div({class:'main'},[
+					div({class:'section-header'},"Instances"),
+					div({class:'card-container'},Object.values(s.instances).filter(search(s.route.q)).map(inst =>
+						div({class:'card'},[
+							div({class:'label'},[
+								span({class:'session '+((inst.session && inst.session.expiresAt > s.lastExpired)
+									?'active'
+									:'inactive'
+									)},' '),
+								inst.label||labelize(inst.id)
+								]),
+							img({class:'icon',src:inst.icon}),
+							div({class:'description'},inst.description||""),
+							select(
+								{onchange: evt => evt.target.value
+									&& (document.location='#'+obj2Uri({path:"/run",instance:inst.id,script:evt.target.value}))
+									&& (evt.target.value = '')
+									},
+								[	option({value:"",selected:true},""),
+									...Object.values(s.scripts)
+									.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
+									]
+								)
 							]),
-						img({class:'icon',src:inst.icon}),
-						div({class:'description'},inst.description||""),
-						select(
-							{onchange: evt => evt.target.value
-								&& (document.location='#'+obj2Uri({path:"/run",instance:inst.id,script:evt.target.value}))
-								&& (evt.target.value = '')
+						)),
+					div({class:'section-header'},"Scripts"),
+					div({class:'card-container'},Object.values(s.scripts).filter(search(s.route.q)).map(scr =>
+						div({class:'card'},[
+							div({class:'label'},scr.label||labelize(scr.id)),
+							img({class:'icon',src:scr.icon}),
+							div({class:'description'},scr.description||""),
+							Object.keys(s.instances).length==1
+							? button({
+								onclick:evt=>document.location='#'+obj2Uri({path:"/run",instance:Object.keys(s.instances)[0],script:scr.id})
 								},
-							[	option({value:"",selected:true},""),
-								...Object.values(s.scripts)
-								.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
-								]
-							)
-						]),
-					)),
-				div({class:'section-header'},"Scripts"),
-				div({class:'card-container'},Object.values(s.scripts).filter(search(s.route.q)).map(scr =>
-					div({class:'card'},[
-						div({class:'label'},scr.label||labelize(scr.id)),
-						img({class:'icon',src:scr.icon}),
-						div({class:'description'},scr.description||""),
-						Object.keys(s.instances).length==1
-						? button({
-							onclick:evt=>document.location='#'+obj2Uri({path:"/run",instance:Object.keys(s.instances)[0],script:scr.id})
-							},
-							"Run on "+Object.values(s.instances)[0].label||labelize(Object.keys(s.instances)[0])
-							)
-						: select(
-							{onchange:evt=>document.location='#'+obj2Uri({path:"/run",instance:evt.target.value,script:scr.id})},
-							[	option({value:"",selected:true},""),
-								...Object.values(s.instances)
-								.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
-								]
-							)
-						])
-					))
+								"Run on "+Object.values(s.instances)[0].label||labelize(Object.keys(s.instances)[0])
+								)
+							: select(
+								{onchange:evt=>document.location='#'+obj2Uri({path:"/run",instance:evt.target.value,script:scr.id})},
+								[	option({value:"",selected:true},""),
+									...Object.values(s.instances)
+									.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
+									]
+								)
+							])
+						))
+					])
 				])
 			})
 		}

@@ -1,7 +1,8 @@
 const https = require('https');
 exports.cors = async (req, res) => {
-	let whitelistOriginsRegex = process.env.whitelistOriginsRegex
-	let whitelistServersRegex = process.env.whitelistServersRegex
+	let whitelistOriginsRegex = process.env.whitelistOriginsRegex,
+		whitelistServersRegex = process.env.whitelistServersRegex,
+		debug = req.query.debug === "1" && process.env.allowDebugLogging
 	try{
 		res.set('Access-Control-Allow-Origin', 
 			whitelistOriginsRegex 
@@ -23,7 +24,7 @@ exports.cors = async (req, res) => {
 			}
 		let hostname = host.split(":")[0]
 		let port = parseInt(host.split(":")[1])
-		console.log(req.headers)
+		if(debug){console.log("req.headers",req.headers)}
 		let originRes = await request(peek({
 			method: req.method,
 			hostname: pathSegments[0].split(":")[0],
@@ -42,7 +43,7 @@ exports.cors = async (req, res) => {
 		return res.status(500).json({error:"Internal Server Error"})
 		}
 	
-	function peek(o){if(req.query.debug=="1"){console.log(o)}return o}
+	function peek(o){if(debug){console.log(o)}return o}
 	function request({
 			method,
 			hostname,
@@ -52,6 +53,7 @@ exports.cors = async (req, res) => {
 			headers,
 			body
 		}){
+		let bodyString = JSON.stringify(body)
 		return new Promise((res,rej)=>{
 			let requestConfig = {
 				method,
@@ -61,7 +63,11 @@ exports.cors = async (req, res) => {
 					+ (path.includes("?")?"&":"?")
 					+ Object.entries(query).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
 					,
-				headers
+				headers:{
+					...headers,
+					"Content-Type": "application/json",
+					"Content-Length": Buffer.byteLength(bodyString)
+					}
 				}
 			let req = https.request(requestConfig,
 				resp=>{
@@ -71,7 +77,7 @@ exports.cors = async (req, res) => {
 					resp.on('end', () => {
 						try{res(peek({
 							...res,
-							body: JSON.parse(data)
+							...(data?{body: JSON.parse(data)}:{})
 							}))}
 						catch(e){rej(e)}
 						})
@@ -79,7 +85,7 @@ exports.cors = async (req, res) => {
 				)
 			//Note: Cloud Functions seems to smartly interpret various body content types & convert to a unified representation
 			// But, we don't need to reproduce all those original bodies, since looker only cares about JSON bodies
-			if(method!=="GET"){req.write(JSON.stringify(body))}
+			if(body!==undefined){req.write(bodyString)}
 			req.end()
 			})
 		}

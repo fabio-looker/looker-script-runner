@@ -40,7 +40,9 @@
 - Rotating secret - The signing secret is known only to the data warehouse, and it is periodically rotated.
 
 
-# Other/Future Possible Developments
-- Secret known to the auth server - The auth server could also be allowed to keep the signing secret in-memory for faster/no-network verification 
+# Future Possible Developments
+- Per-script OAuth Implicit Grant model
+	- Currently, the script runner coordinates multiple scripts. This is both a feature and a limitation. It allows Looker administrators to have a more light-weight "hub" method to adding integrations, and users to have a single point-of-entry to scripts, but requires script authors to implement a non-standard invocation mechanism. In the future, a very similar authentication flow could be used to retrieve the access token, but it could be returned to the individual scripts using an OAuth Implicit Grant flow. This would be great for standardization of how the scripts authenticate, but would mean that end users would have to grant access on a per-script basis, rather than to the hub that the administrator has pre-approved. Maybe there is a middle ground...
+- Secret known to the auth server - The auth server could also be allowed to keep the signing secret in-memory for faster/no-network verification. However, secret rotation is a nice security benefit, and Google Cloud Functions are largely stateless, so this is probably not likely to happen. 
 - Audience allowed - The claim may optionally contain an "aud" claim. This would allow certain classes of "privelege escalating" API scripts to confirm that the signature was intended (and approved by the user) for use with this script.
 - More frequent secret rotation - With an incremental PDT feature, it would be feasible to rotate the secret much more frequently, since you could keep a copy of the previous secret(s) to be accepted within the margins affored by the token expiration.

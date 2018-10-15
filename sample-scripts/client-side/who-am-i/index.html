@@ -9,12 +9,12 @@ async function api(endpoint,{token, qs={}, body}={}){
 	let path = match[2]
 	let headers = {
 			'Authorization':'token '+(token||hashArguments.token),
-			'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+			...(body?{'Content-Type': 'application/json; charset=UTF-8'}:{})
 		}
 	let response = await fetch(
 		"https://"+hashArguments.cfnCors+"/"+hashArguments.lkrApiHost
 		+"/api/3.0/"+path
-		+(method.includes("?")?"&":"?")
+		+(path.includes("?")?"&":"?")
 		+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
 		,{method,headers,body:body!==undefined?JSON.stringify(body):undefined}
 		)

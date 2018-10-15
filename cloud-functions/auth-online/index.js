@@ -6,7 +6,7 @@ exports.authOnline = async (req, res) => {
 		lookerApiPort = process.env.lookerApiPort || "19999",
 		model = process.env.model || "embed_api_auth",
 		explore = process.env.explore || "auth",
-		debug = req.query.debug === "1"
+		debug = req.query.debug === "1" && process.env.allowDebugLogging
 	try{
 		//Allow-Origin: * should be fine since the request doesn't mutate anything and the authentication is explicit in the request (i.e., not in a cookie)
 		res.set('Access-Control-Allow-Origin', process.env.allowOrigin || "*")

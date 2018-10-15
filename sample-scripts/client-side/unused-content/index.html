@@ -9,12 +9,12 @@ async function api(endpoint,{token, qs={}, body}={}){
 	let path = match[2]
 	let headers = {
 			'Authorization':'token '+(token||hashArguments.token),
-			'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+			...(body?{'Content-Type': 'application/json; charset=UTF-8'}:{})
 		}
 	let response = await fetch(
 		"https://"+hashArguments.cfnCors+"/"+hashArguments.lkrApiHost
 		+"/api/3.0/"+path
-		+(method.includes("?")?"&":"?")
+		+(path.includes("?")?"&":"?")
 		+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
 		,{method,headers,body:body!==undefined?JSON.stringify(body):undefined}
 		)
@@ -33,47 +33,53 @@ var config ={
 	}
 
 var m=config.modelName
+
 bodyAppend("Getting fields in "+m+"...")
 var model = await api("GET lookml_models/"+m)
 var exploreNames = model.explores.map(e=>e.name)
 var fields = await exploreNames.reduce(async (chain,e) => {
-     var priorFields = await chain
-     var explore = await api("GET lookml_models/"+m+"/explores/"+e)
-     return explore.fields.dimensions.concat(explore.fields.measures)
-             .map(f=>(m+"::"+e+"/"+f.name))
-             .concat(priorFields)
-        }
-     , await [] )
+	var priorFields = await chain
+	var explore = await api("GET lookml_models/"+m+"/explores/"+e)
+	return explore.fields.dimensions.concat(explore.fields.measures)
+			.map(f=>(m+"::"+e+"/"+f.name))
+			.concat(priorFields)
+	}
+	, await [] )
 bodyAppend("> Fetched "+fields.length+" field definitions")
+
 bodyAppend("Getting usage for timeframe '"+config.timeframe+"'...")
-var queries = await api("POST queries/run/json",{body:{
-    model:"i__looker",
-    view:"history",
-    fields:["query.model","query.view","query.formatted_fields","query.formatted_filters","query.sorts","query.formatted_pivots","history.query_run_count"],
-    filters:{"history.created_date":config.timeframe,"query.model":m},
-    limit:50000
+var queries = await api("POST queries/run/json?debug=1",{body:{
+	model:"i__looker",
+	view:"history",
+	fields:["query.model","query.view","query.formatted_fields","query.formatted_filters","query.sorts","query.formatted_pivots","history.query_run_count"],
+	filters:{"history.created_date":config.timeframe,"query.model":m},
+	limit:50000
 	}})
 bodyAppend("> "+queries.length+" queries fetched")
+
 var fieldUsage = queries.map( q => ([]
-    .concat((JSON.parse(q["query.formatted_fields"])||[]).map(f => ({fid:q["query.model"]+"::"+q["query.view"]+"/"+f, count:q["history.query_run_count"]})))
-    .concat((JSON.parse(q["query.sorts"])||[]).map(f => ({fid:q["query.model"]+"::"+q["query.view"]+"/"+f, count:q["history.query_run_count"]})))
-    .concat(Object.keys((JSON.parse(q["query.formatted_filters"])||{})).map(f => ({fid:q["query.model"]+"::"+q["query.view"]+"/"+f, count:q["history.query_run_count"]})))
+	.concat((JSON.parse(q["query.formatted_fields"])||[]).map(f => ({fid:q["query.model"]+"::"+q["query.view"]+"/"+f, count:q["history.query_run_count"]})))
+	.concat((JSON.parse(q["query.sorts"])||[]).map(f => ({fid:q["query.model"]+"::"+q["query.view"]+"/"+f, count:q["history.query_run_count"]})))
+	.concat(Object.keys((JSON.parse(q["query.formatted_filters"])||{})).map(f => ({fid:q["query.model"]+"::"+q["query.view"]+"/"+f, count:q["history.query_run_count"]})))
 ))
 .reduce(((a,b)=>a.concat(b)),[])
 .reduce((to,field)=>({[field.fid]:(to[field.fid]||0)+field.count, ...to}),{});
 var tableData = fields
-  .map(f=>({field:f,usage:fieldUsage[f]||0}))
-  .sort((a,b)=>a.usage-b.usage)
-
-var columns=Object.keys(tableData)
-bodyAppend('<table><thead><tr>'
-	+columns.map(c=>`<th>${c}</th>`).join('')
-	+'</tr></thead><tbody>'
-	+tableData.map(row=>'\n<tr>'
-		+columns.map(col=>'<td>'+row[col]+'</td>').join('')
-		+'</tr>'
+	.map(f=>({"Field":f, "Usage":fieldUsage[f]||0}))
+	.sort((a,b)=>b.Usage-a.Usage)
+if(tableData[0]){
+	var columns=Object.keys(tableData[0])
+	bodyAppend('<table><thead><tr>'
+		+columns.map(c=>`<th>${c}</th>`).join('')
+		+'</tr></thead><tbody>'
+		+tableData.map(row=>'\n<tr>'
+			+columns.map(col=>'<td>'+row[col]+'</td>').join('')
+			+'</tr>'
+			).join('')
+		+'</tbody></table>'
 		)
-	+'</tbody></table>'
-	)
+	}else{
+		bodyAppend("No fields to report on")
+	}
 }()
  </script>
