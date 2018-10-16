@@ -1,5 +1,9 @@
 {
 	"label":"Find unused content",
 	"sandbox":"allow-scripts allow-modals",
-	"description":"Porting over an example from discourse, hits both the model API and an i__looker query"
+	"description":"Porting over an example from discourse, hits both the model API and an i__looker query",
+	"paramSchema":{
+		"type":"string",
+		"title":"Model"
+	}
 }
