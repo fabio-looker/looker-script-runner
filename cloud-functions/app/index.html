@@ -4,7 +4,6 @@
 	<meta charset="utf-8" />
 	<title>Looker API Environment</title>
 	<!--<link rel="shortcut icon" href="favicon.ico" />-->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/hyperapp/1.2.5/hyperapp.js" integrity="sha256-EO1vRmcxDsotgvYvFuhhr9KbV3zX4a0uop87FBqNVwo=" crossorigin="anonymous"></script>
 	<style>
 	html,body{color:#444;background-color: #fff;margin:0}
@@ -42,7 +41,7 @@ const instanceDefaults = {
 	"authWindow":"popup"
 	}
 const priorSessions = tryJsonParse(localStorage.getItem("sessions"),{})
-const config = await $.getJSON("config.json")
+const config = await getJson("config.json")
 const state = {
 	route:{path:""},
 	scriptId:"",
@@ -121,7 +120,7 @@ const actions = {
 			|| !instance.cfnAuth
 			){throw "Invalid instance"}
 		if(state.popups[externalStateId]){state.popups[externalStateId].close()}
-		$.getJSON(
+		getJson(
 			"https://"+instance.cfnAuth
 			+"?aud="+encodeURIComponent(route.aud)
 			+"&exp="+encodeURIComponent(route.exp)
@@ -159,7 +158,7 @@ const actions = {
 run = hyperapp.app(state,actions,view(),document.body)
 config.scripts.forEach(async s => {
 	try{
-		run.setScript({...await $.getJSON(s.src+"/manifest.json"),...s,status:'resolved'})
+		run.setScript({...await getJson(s.src+"/manifest.json"),...s,status:'resolved'})
 		run.route()  //In case we just loaded
 		}
 	catch(e){
@@ -300,7 +299,6 @@ function customEncode(str){return encodeURIComponent(str
 	.replace(/\-/g,"$d")
 	.replace(/\:/g,"$c")
 	)}
-
 function getHashObj(){
 	return (location.hash.slice(1).split('&').filter(Boolean)
 			.map(ss=>ss.replace(/^\//,"path=/"))
@@ -329,7 +327,26 @@ function getAuthUrl(instance,state){
 			)
 		)
 	}
-
+async function getJson(url){
+	return new Promise((res,rej) => {
+		let req = new XMLHttpRequest()
+		req.open('GET', url, true)
+		req.onload = function() {
+			if (this.status >= 200 && this.status < 400) {
+				try{res(JSON.parse(this.response))}
+				catch(e){
+					e.response = this
+					rej(e)
+					}
+				}
+			else {
+				rej(this)
+				}
+			}
+		req.onerror = rej
+		req.send()
+		})
+	}
 function getNonce(len = 8){
 	let arr = new Uint8Array(len / 2)
 	window.crypto.getRandomValues(arr)
