@@ -1,18 +1,20 @@
 <html><head>
 <script>
-let hashArguments = document.location.hash.slice(1).split('&')
+let runnerArguments = document.location.hash.slice(1).split('&')
 	.map(pair=>pair.split('='))
 	.reduce((obj,parts)=>({...obj,[decodeURIComponent(parts[0])]:decodeURIComponent(parts.slice(1).join('='))}),{})
+let scriptArguments = runnerArguments.arg && JSON.parse(runnerArguments.arg)
+
 async function api(endpoint,{token, qs={}, body}={}){
 	let match = endpoint.match("^(GET|POST|PUT|PATCH|DELETE)? ?(.*)$")
 	let method = match[1]||"GET"
 	let path = match[2]
 	let headers = {
-			'Authorization':'token '+(token||hashArguments.token),
+			'Authorization':'token '+(token||runnerArguments.token),
 			...(body?{'Content-Type': 'application/json; charset=UTF-8'}:{})
 		}
 	let response = await fetch(
-		"https://"+hashArguments.cfnCors+"/"+hashArguments.lkrApiHost
+		"https://"+runnerArguments.cfnCors+"/"+runnerArguments.lkrApiHost
 		+"/api/3.0/"+path
 		+(path.includes("?")?"&":"?")
 		+Object.entries(qs).map(([k,v])=>encodeURIComponent(k)+"="+encodeURIComponent(v)).join("&")
@@ -28,8 +30,8 @@ async function api(endpoint,{token, qs={}, body}={}){
 function bodyAppend(str){document.body.innerHTML+="\n"+str}
 !async function(){
 var config ={
-	modelName:prompt("Model name?")||"faa_redshift", //Also just for demonstration. V2 will have native arguments via JSON editor
-	timeframe: "28 days"
+	timeframe: "28 days",
+	...scriptArguments
 	}
 
 var m=config.modelName
@@ -66,7 +68,7 @@ var fieldUsage = queries.map( q => ([]
 .reduce((to,field)=>({[field.fid]:(to[field.fid]||0)+field.count, ...to}),{});
 var tableData = fields
 	.map(f=>({"Field":f, "Usage":fieldUsage[f]||0}))
-	.sort((a,b)=>b.Usage-a.Usage)
+	.sort((a,b)=>a.Usage-b.Usage)
 if(tableData[0]){
 	var columns=Object.keys(tableData[0])
 	bodyAppend('<table><thead><tr>'

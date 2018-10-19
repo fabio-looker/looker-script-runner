@@ -10,13 +10,13 @@
 			}
 		],
 	"scripts": [
-		{	"id":"unused-content",
-			"type": "client-api",
-			"src": "../../sample-scripts/client-side/unused-content"
-			},
 		{	"id":"who-am-i",
 			"type": "client-api",
 			"src": "../../sample-scripts/client-side/who-am-i"
+			},
+		{	"id":"unused-content",
+			"type": "client-api",
+			"src": "../../sample-scripts/client-side/unused-content"
 			}
 		]
 	}

@@ -6,10 +6,11 @@
 	<!--<link rel="shortcut icon" href="favicon.ico" />-->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/hyperapp/1.2.5/hyperapp.js" integrity="sha256-EO1vRmcxDsotgvYvFuhhr9KbV3zX4a0uop87FBqNVwo=" crossorigin="anonymous"></script>
 	<script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@1.1.0/dist/jsoneditor.min.js" integrity="sha256-clQjIrwZz6i7ml12BiVOc9mNa9LbY+DbUU+AEVklTOk=" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/rison-node@2.0.0/js/rison.min.js" integrity="sha256-nO+B3vsn2HoghV6jes/2925NnMluzc0fZLmPw5VtkYU=" crossorigin="anonymous"></script>
 	<style>
 	html,body{color:#444;background-color: #fff;margin:0}
 	#top-bar {height:3em;background-color: #333;color:#eee;padding-left:4em}
-	a#return{position:absolute;top:0;left:0.5em;text-align: center;vertical-align: middle;text-decoration: none; font-size: 2em; color:#eee}
+	a#return{position:absolute;top:0;left:0.5em;text-decoration: none; font-size: 2em; color:#eee}
 	#main {display:flex; flex-direction: column; align-items:center; min-width:600px; max-width:1600px; width:90%; margin-left:auto; margin-right:auto;}
 	.overlay{position:fixed;top:0;bottom:0;left:0;right:0;background: rgba(0,0,0,0.3)}
 	.lightbox{position:relative;height:640px;width:480px;margin:auto;display:flex;justify-content:center;}
@@ -17,8 +18,8 @@
 	#auth iframe {height:100%;width:100%}
 	#omni {height:1.5em;margin:1em 0;color:#333;background-color: #fff;position:relative;margin-left:auto;margin-right:auto;width:80vw}
 	div.section-header {border-bottom: 1px solid #333; font-size:1.4em; font-weight: bold}
-	div.card-container {display: flex; flex-direction: row; justify-content: center;}
-	div.card {width:30%; height:6.8em; margin:1em 8px; border-radius:0.5em;box-shadow:2px 2px 4px 4px rgba(0,0,0,0.3);padding:0.5em }
+	div.card-container {width:100%; display: flex; flex-direction: row; justify-content: center;}
+	div.card {width:30%; height:6.8em; margin:1em 8px; border-radius:0.5em;box-shadow:2px 2px 4px 4px rgba(0,0,0,0.3);padding:0.5em; padding-bottom: 1.5em}
 	div.card .label {border-bottom:1px solid #999; background:linear-gradient(to bottom, #fff 0%, #eee 100%);color:#111;font-weight:bold}
 	div.card .description {max-height:2.2em; overflow:hidden; text-overflow: ellipsis;}
 	div.card .session {display:inline-block; vertical-align: middle; height:0.8em;width:0.8em;border-radius: 0.4em;margin-right: 0.4em}
@@ -26,9 +27,9 @@
 	div.card .session.inactive {background-color:#ccc}
 	.hostname {font-size: 0.8em; color:#999;}
 	iframe.script-iframe {width: 100%; height:800px; border:0}
-	button{max-width:12em; border-radius:0.5em; background-color:#608; color:#ddd; padding-top:0.25em; padding-bottom: 0.25em;}
-	button.hi{ background-color:#93C; color:#eee;}
-	.row{display:flex;flex-direction: row; align-items:center;}
+	a.button{display:inline-block; max-width:12em; border-radius:0.25em; background-color:#608; color:#ddd; padding:0.4em; margin: 1em 2em 1em 2em; cursor: pointer; text-decoration: none}
+	a.button.hi{background-color:#93C; color:#eee;}
+	.hrz{display:flex;flex-direction: row; align-items:center; justify-content: center}
 	#json-editor{min-height:4em}
 	</style>
 </head>
@@ -44,6 +45,14 @@ const instanceDefaults = {
 	"lkrExplore":"auth",
 	"lkrDash":"init",
 	"authWindow":"popup"
+	}
+const editorDefaults = {
+	disable_collapse:true,
+	required_by_default:true,
+	// "disable_properties":true,
+	// "display_required_only":true,
+	"keep_oneof_values":true,
+	// "disable_edit_json":true
 	}
 const priorSessions = tryJsonParse(localStorage.getItem("sessions"),{})
 const config = await getJson("config.json")
@@ -63,7 +72,9 @@ const state = {
 	popups:{},
 	lastExpired:Date.now(),
 	runArgs:{},
-	runConfirmed:false
+	runConfirmed:false,
+	editor:{},
+	invocationUrl:""
 	}
 
 const actions = {
@@ -82,7 +93,7 @@ const actions = {
 	'/run': route => state => {
 		let instanceId = route.instance
 		let scriptId = route.script
-		let runArgs = {[route.instance+'+'+route.script]:route.arg}
+		let runArgs = {[route.instance+'+'+route.script]:route.arg} //TODO: JSON/RISON parse
 		let instance = state.instances[instanceId]
 		let script = state.scripts[scriptId]
 		if(!instance || !script){
@@ -93,11 +104,46 @@ const actions = {
 			run.authInit({instance,route})
 			return
 			}
-		return {instanceId,scriptId,runConfirmed:false,runArgs:{...state.runArgs,...runArgs}}
+		return {instanceId,scriptId,
+			runConfirmed:false,
+			invocationUrl:"",
+			runArgs:{...state.runArgs,...runArgs}
+			}
 		},
-	confirm: ()=>s=>({runConfirmed:true}),
+	setEditor: ({element,create}) => s => {
+		let script = s.scripts[s.scriptId]
+		if(!script){return}
+		let options = {
+			...editorDefaults,
+			schema:{
+				title:"Script Arguments",
+				...script.paramSchema
+				}
+			}
+		let editor = create
+			? new JSONEditor(element, options)
+			: s.editor
+		editor.setValue({
+			...script.paramInit,
+			...s.runArgs[s.instanceId+'+'+s.scriptId]
+		})
+		return {editor}
+		},
+	destroyEditor: () => s => {s.editor.destroy && s.editor.destroy(); return {editor:{}}},
+	confirm: () => s => {
+		let arg = s.editor.getValue && s.editor.getValue()
+		let script = s.scripts[s.scriptId] || {}
+		let instance = s.instances[s.instanceId] || {}
+		let invocationUrl = script.src+"/index.html#"+obj2Uri({
+			token:instance.session.access_token,
+			cfnCors: instance.cfnCors,
+			lkrApiHost: instance.lkrApiHost,
+			...(arg===undefined?{}:{arg: JSON.stringify(arg)})
+			})
+		return {runConfirmed:true,invocationUrl}
+	},
 	authInit: ({instance,route}) => state => {
-		window.location="#/auth/pending"
+		window.location="#/auth/pending-user"
 		if(instance.session && instance.session.expiresAt>Date.now()){return}
 		//Prep for XSRF protection
 		let externalStateId = getNonce()
@@ -119,7 +165,7 @@ const actions = {
 		return {authUrl,popups:{...state.popups, ...newPopups}}
 		},
 	'/auth/claim': route => state => {
-		window.location="#/auth/pending"
+		window.location="#/auth/pending-server"
 		let externalStates = tryJsonParse(localStorage.getItem("externalStates"),{})
 		let externalStateId = route.state
 		let externalState = externalStates[externalStateId]
@@ -161,8 +207,11 @@ const actions = {
 		}
 	}
 
-
-
+// JSONEditor.defaults.theme = 'foundation5'
+// JSONEditor.defaults.iconlib = 'fontawesome4'
+JSONEditor.defaults.options.disable_edit_json=false
+JSONEditor.defaults.options.disable_properties=false
+JSONEditor.defaults.options.remove_empty_properties=true
 
 run = hyperapp.app(state,actions,view(),document.body)
 config.scripts.forEach(async s => {
@@ -180,28 +229,34 @@ window.addEventListener("hashchange",()=>run.route(getHashObj()))
 
 function view(){
 	const {h} = hyperapp
-	const [div,span,input,img,select,option,iframe,button,a]
-		= 'div,span,input,img,select,option,iframe,button,a'.split(',')
+	const [div,span,input,img,select,option,iframe,details,summary,a]
+		= 'div,span,input,img,select,option,iframe,details,summary,a'.split(',')
 		.map(tag => (o,a)=>h(tag,o,a))
 	const endscript = '<'+'/'+'scr'+'ipt>'
-	const pathParts = (s,part) => (s.route.path||'').split('/').slice(1)
 	return (s,run) => {
+		let pathParts = (s.route.path||'').split('/').slice(1)
 		let script = s.scripts[s.scriptId]||{}
 		let instance = s.instances[s.instanceId]||{}
 		let scriptLabel = script.label||labelize(script.id)||"[No script]"
 		let instanceLabel = instance.label||labelize(instance.id)||"[No instance]"
-		return which(pathParts(s,0),{
-			'auth':div({class:'auth overlay'},[
-				//TODO : status & cancel UI
-				div({class:'lightbox'},which(pathParts(s,2),{
+		let runArg = s.runArgs[instance.id+'+'+script.id]
+		return which(pathParts[0],{
+			'auth':div({},[
+				div({id:"top-bar"},[
+					a({id:"return",href:"#"},'<'),
+					div({class:"section header"},"Authenticating...")
+					]),
+				div({id:'main',class:'hrz'},which(pathParts[1],{
 					'init':[
 						a({id:'popup',target:'popup',
 							href:s.authUrl
 							},"⧉"),
 						iframe({id:'auth-ifr',src:s.authUrl})
 						],
+					'pending-user':[div({},"Authentication is pending your action in a popup window. If you closed the window, please return and start over.")],
 					'claim':[div({},"Validating access...")],
-					'pending':[div({},"Validating access...")]
+					'pending-server':[div({},"Authentication pending validation by the server...")],
+					'*':[div({},"Unknown authentication state")]
 					}))
 				]),
 			'run':div({},[
@@ -215,11 +270,7 @@ function view(){
 					((script && instance && instance.session)
 						? iframe({class:'script-iframe',
 							sandbox:script.sandbox||"allow-scripts",
-							src: script.src+"/index.html#"+obj2Uri({
-								token:instance.session.access_token,
-								cfnCors: instance.cfnCors,
-								lkrApiHost: instance.lkrApiHost
-								})
+							src: s.invocationUrl
 							})
 						: (instance
 							? a({onclick:()=>run.authInit({instance})},"Please authenticate first")
@@ -228,27 +279,34 @@ function view(){
 						)
 					])
 				: div({id:"main"},[
-					div({id:'json-editor',
-						onupdate:(el)=>{
+					div({id:'json-editor',key:'json-editor',
+						script,instance,runArg,
+						oncreate:(element)=> {
 							if(script.paramSchema){
-								let editor = new JSONEditor(el, {schema:script.paramSchema})
-								editor.setValue(s.runArgs[s.instanceId+'+'+s.scriptId])
+								run.setEditor({element,create:true})
 								}
-							else{
-								el.innerHTML=""
+							},
+						onupdate:(element,priorVnode)=>{
+							if(script === priorVnode.script
+							&& instance === priorVnode.instance
+							&& runArg === priorVnode.runArg
+							){return}
+							if(script.paramSchema){
+								run.setEditor({element})
 								}
-							}
-						},[]),
+							},
+						ondestroy: ()=>run.destroyEditor()
+					},[div({})]),
 					//div({id:'confirm-text'},`Run ${scriptLabel}?`),
-					div({class:"row"},[
-						button({onclick:()=>document.location="#"},"Cancel"),
-						button({class:'hi',onclick:()=>run.confirm()},"Run")
+					div({class:"hrz"},[
+						a({class:'button',onclick:()=>document.location="#"},"Cancel"),
+						a({class:'button hi',onclick:()=>run.confirm()},"Run")
 						])
 					])
 				]),
 			'*':div({},[
-				div({id:'top-bar'},[
-					input({type:'text',id:'omni',value:s.route.q,onkeyup:evt=>run.omni(evt.target.value)})
+				div({id:'top-bar',class:'hrz'},[
+					input({type:'text',id:'omni',placeholder:"Type to filter...",value:s.route.q,onkeyup:evt=>run.omni(evt.target.value)})
 					]),
 				div({id:'main'},[
 					div({class:'section-header'},"Instances"),
@@ -263,16 +321,18 @@ function view(){
 								]),
 							img({class:'icon',src:inst.icon}),
 							div({class:'description'},inst.description||""),
-							select(
-								{onchange: evt => evt.target.value
-									&& (document.location='#'+obj2Uri({path:"/run",instance:inst.id,script:evt.target.value}))
-									&& (evt.target.value = '')
-									},
-								[	option({value:"",selected:true},""),
-									...Object.values(s.scripts)
-									.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
-									]
-								)
+							div({class:'hrz'},[
+								select(
+									{onchange: evt => evt.target.value
+										&& (document.location='#'+obj2Uri({path:"/run",instance:inst.id,script:evt.target.value}))
+										&& (evt.target.value = '')
+										},
+									[	option({value:"",selected:true},""),
+										...Object.values(s.scripts)
+										.map(scr=>option({value:scr.id},scr.label||labelize(scr.id)))
+										]
+									)
+								])
 							]),
 						)),
 					div({class:'section-header'},"Scripts"),
@@ -281,19 +341,22 @@ function view(){
 							div({class:'label'},scr.label||labelize(scr.id)),
 							img({class:'icon',src:scr.icon}),
 							div({class:'description'},scr.description||""),
-							Object.keys(s.instances).length==1
-							? button({
-								onclick:evt=>document.location='#'+obj2Uri({path:"/run",instance:Object.keys(s.instances)[0],script:scr.id})
-								},
-								"Run on "+Object.values(s.instances)[0].label||labelize(Object.keys(s.instances)[0])
-								)
-							: select(
-								{onchange:evt=>document.location='#'+obj2Uri({path:"/run",instance:evt.target.value,script:scr.id})},
-								[	option({value:"",selected:true},""),
-									...Object.values(s.instances)
-									.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
-									]
-								)
+							div({class:'hrz'},[
+								Object.keys(s.instances).length==1
+								? a({
+									class:"button",
+									href:'#'+obj2Uri({path:"/run",instance:Object.keys(s.instances)[0],script:scr.id})
+									},
+									"Run on "+Object.values(s.instances)[0].label||labelize(Object.keys(s.instances)[0])
+									)
+								: select(
+									{onchange:evt=>document.location='#'+obj2Uri({path:"/run",instance:evt.target.value,script:scr.id})},
+									[	option({value:"",selected:true},""),
+										...Object.values(s.instances)
+										.map(inst=>option({value:inst.id},inst.label||labelize(inst.id)))
+										]
+									)
+								])
 							])
 						))
 					])
@@ -330,10 +393,22 @@ function customEncode(str){return encodeURIComponent(str
 	.replace(/\:/g,"$c")
 	)}
 function getHashObj(){
-	return (location.hash.slice(1).split('&').filter(Boolean)
-			.map(ss=>ss.replace(/^\//,"path=/"))
-			.map(ss=>ss.split('='))
-			.reduce((aa,a)=>({[decodeURIComponent(a[0])]:decodeURIComponent(a.slice(1).join('=')), ...aa}),{})
+	return (location.hash
+		.replace(/^(\?|#)/,'')
+		.split('&').filter(Boolean)
+		.map(parts=>parts.replace(/^\//,"path=/"))
+		.map(parts=>parts.split('='))
+		.reduce((obj,[key,...rest])=>{
+			key = decodeURIComponent(key)
+			let val = rest.join('=')
+			try{ val = JSON.parse(decodeURIComponent(val))}catch(e){
+				try{ val = rison.decode(decodeURIComponent(val.replace(/\+/g,' ')))}catch(e){}
+				}
+			return {
+				[key]:val,
+				...obj
+				}
+			},{})
 		)
 	}
 function obj2Uri(obj){
@@ -381,6 +456,11 @@ function getNonce(len = 8){
 	let arr = new Uint8Array(len / 2)
 	window.crypto.getRandomValues(arr)
 	return Array.from(arr).map(int=>('0'+int.toString(16)).slice(-2)).join('')
+	}
+
+function tryRisonParse(s){
+	try{return rison.decode(s)}
+	catch(e){return}
 	}
 
 })().catch(e => console.error(e))

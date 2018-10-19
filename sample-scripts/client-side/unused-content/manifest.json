@@ -1,9 +1,16 @@
 {
 	"label":"Find unused content",
-	"sandbox":"allow-scripts allow-modals",
-	"description":"Porting over an example from discourse, hits both the model API and an i__looker query",
+	"sandbox":"allow-scripts",
+	"description":"Simple example from discourse, hits both the model API and an i__looker query. #developer",
 	"paramSchema":{
-		"type":"string",
-		"title":"Model"
+		"type":"object",
+		"properties":{
+			"modelName":{"type":"string","title":"Model"},
+			"timeframe":{"type":"string","title":"Timeframe (max 90 days)"}
+		}
+	},
+	"paramInit":{
+		"modelName":"faa_redshift",
+		"timeframe":"28 days"
 	}
 }
