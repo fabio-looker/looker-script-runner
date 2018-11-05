@@ -75,10 +75,10 @@ exports.cors = async (req, res) => {
 					resp.on('data', (chunk) => {data+=chunk;})
 					resp.on("error", err => {rej(err.message)})
 					resp.on('end', () => {
-						try{res(peek({
-							...res,
+						try{res({
+							...resp,
 							...(data?{body: JSON.parse(data)}:{})
-							}))}
+							})}
 						catch(e){rej(e)}
 						})
 					}
