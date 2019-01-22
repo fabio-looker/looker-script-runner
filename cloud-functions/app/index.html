@@ -138,6 +138,7 @@ const actions = {
 			token:instance.session.access_token,
 			cfnCors: instance.cfnCors,
 			lkrApiHost: instance.lkrApiHost,
+			lkrUiHost: instance.lkrUiHost,
 			...(arg===undefined?{}:{arg: JSON.stringify(arg)})
 			})
 		return {runConfirmed:true,invocationUrl}

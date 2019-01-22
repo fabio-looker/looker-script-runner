@@ -17,6 +17,10 @@
 		{	"id":"unused-content",
 			"type": "client-api",
 			"src": "../../sample-scripts/client-side/unused-content"
+			},
+		{	"id":"modified-download-from-embed",
+			"type": "client-api",
+			"src": "../../sample-scripts/client-side/modified-download-from-embed"
 			}
 		]
 	}

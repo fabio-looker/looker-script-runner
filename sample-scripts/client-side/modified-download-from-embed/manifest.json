@@ -1,0 +1,13 @@
+{
+	"label":"Modified Embed Download",
+	"sandbox":"allow-scripts allow-same-origin allow-forms",
+	"description":"Embed a dashboard, listen to its filter changes, and later use the API to download its data",
+	"paramSchema":{
+		"type":"object",
+		"properties":{
+			"dashboardId":{"type":"string","title":"Dashboard ID"}
+		}
+	},
+	"paramInit":{
+	}
+}

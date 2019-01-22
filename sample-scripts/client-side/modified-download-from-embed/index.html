@@ -1,0 +1,116 @@
+<!doctype HTML>
+<html><head>
+<script src="../../lib/api.js"></script>
+<script>
+let env = document.location.hash.slice(1).split('&')
+	.map(pair=>pair.split('='))
+	.reduce((obj,parts)=>({...obj,[decodeURIComponent(parts[0])]:decodeURIComponent(parts.slice(1).join('='))}),{})
+let scriptArgs = env.arg && JSON.parse(env.arg) || {}
+let api = Api({...env,apiVersion:"3.1"})
+</script>
+<style>
+	img{height:6em;width:6em;border-radius:50%;}
+	p{margin:0 2em;text-indent:-2em}
+	#looker {position:relative;}
+	#dl {
+		position: absolute;
+		background-color: white;
+		top:0px; right:0px;
+		display:inline-block;
+		height:50px; width:120px;
+	}
+	#dl input {
+		right: 20px;
+		position: absolute;
+		color: white;
+		background: #64518a;
+		border-radius: 2px;
+		margin-top: 8px;
+		border: 0px solid white;
+		font-size: 12px;
+		padding: 10px;
+	}
+	.d-n {display:none}
+	
+</style>
+</head>
+<body>
+	<div id="looker">
+		<iframe id="embed" style="width:100%;height:40em" frameBorder=0></iframe>
+		<div id="dl">
+			<div class="dl-ready d-n"> <form><input type="submit" value="Download" /></form></div>
+			<div class="dl-pending d-n">Downloading...</div>
+			<div class="dl-done d-n" id="output"></div>
+		</div>
+	</div>
+</body>
+<script>
+let asyncDash = api(`dashboards/${scriptArgs.dashboardId}`,{
+	qs:{fields:"dashboard_elements(title,query_id,result_maker(filterables)),dashboard_filters(name,type)"}
+	})
+let latestFilters = null
+
+window.addEventListener("message", (evt) => {
+	if (event.origin === "https://"+env.lkrUiHost){
+			let data = JSON.parse(event.data)
+			if(data.type == "dashboard:filters:changed"){
+				display('.dl-ready','#dl>*')
+				latestFilters = data.dashboard.dashboard_filters
+				}
+			}
+	})
+
+document.querySelector("#embed").src =
+	"https://" + env.lkrUiHost
+	+ "/embed/dashboards/" + scriptArgs.dashboardId
+	+ "?embed_domain=" + document.location.origin
+
+document.querySelector("#dl form").addEventListener("submit", async evt => {
+	evt.preventDefault()
+	display('.dl-pending','#dl>*')
+	document.getElementById('output').innerHTML=""
+	let dash = await asyncDash
+	let tile = dash.dashboard_elements && dash.dashboard_elements[0]
+	if(!tile){return}
+	let qid = tile.query_id
+	let query = await api(`queries/${qid}`)
+	let combinedFilters = 
+		((tile.result_maker||{}).filterables||[])
+		.map(f=>f.listen)
+		.reduce(flatten,[])
+		.reduce((filters,mapping)=>({
+			...filters,
+			[mapping.field]:latestFilters[mapping.dashboard_filter_name]
+			}),query.filters)
+	let modifiedQuery = {
+		...removeExtraneousFields(query),
+		filters: combinedFilters
+		}
+	let csv = await api("POST queries/run/csv",{
+		qs: {force_production:true},
+		body: modifiedQuery
+		})
+	let anchor = document.createElement("a")
+	anchor.innerText = "Download done"
+	anchor.setAttribute("download","mydata.csv")
+	anchor.setAttribute("href",`data:text/plain,${encodeURIComponent(csv)}`)
+	document.getElementById("output").appendChild(anchor)
+	display('.dl-done','#dl>*')
+	anchor.click()
+	})
+	
+function display(on,off){
+	document.querySelectorAll(off).forEach(el => el.style.display = 'none')
+	document.querySelectorAll(on) .forEach(el => el.style.display = 'block')
+	}
+function flatten(a,b){return a.concat(b)}
+function removeExtraneousFields(q){
+	let {
+		id, client_id, slug,
+		can, runtime, filter_config,
+		url ,share_url, expanded_share_url,
+		...rest} = q
+	return rest
+	}
+</script>
+</html>

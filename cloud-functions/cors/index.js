@@ -77,7 +77,7 @@ exports.cors = async (req, res) => {
 					resp.on('end', () => {
 						try{res({
 							...resp,
-							...(data?{body: JSON.parse(data)}:{})
+							...(data?{body: tryJsonParse(data,data)}:{})
 							})}
 						catch(e){rej(e)}
 						})
@@ -89,4 +89,8 @@ exports.cors = async (req, res) => {
 			req.end()
 			})
 		}
+	}
+	
+function tryJsonParse(str,dft){
+	try{return JSON.parse(str)}catch(e){return dft}
 	}
