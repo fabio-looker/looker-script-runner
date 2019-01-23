@@ -2,11 +2,16 @@
 <html><head>
 <script src="../../lib/api.js"></script>
 <script>
-let env = document.location.hash.slice(1).split('&')
+let {
+	lkrUiHost,
+	lkrApiHost,
+	token, //API token
+	cfnCors, //Host of CORS proxy
+	arg //User arguments specific for this script
+	} = document.location.hash.slice(1).split('&')
 	.map(pair=>pair.split('='))
 	.reduce((obj,parts)=>({...obj,[decodeURIComponent(parts[0])]:decodeURIComponent(parts.slice(1).join('='))}),{})
-let scriptArgs = env.arg && JSON.parse(env.arg) || {}
-let api = Api({...env,apiVersion:"3.1"})
+let api = Api({lkrApiHost,token,cfnCors,apiVersion:"3.1"})
 </script>
 <style>
 	img{height:6em;width:6em;border-radius:50%;}
@@ -31,7 +36,6 @@ let api = Api({...env,apiVersion:"3.1"})
 		padding: 10px;
 	}
 	.d-n {display:none}
-	
 </style>
 </head>
 <body>
@@ -40,35 +44,34 @@ let api = Api({...env,apiVersion:"3.1"})
 		<div id="dl">
 			<div class="dl-ready d-n"> <form><input type="submit" value="Download" /></form></div>
 			<div class="dl-pending d-n">Downloading...</div>
-			<div class="dl-done d-n" id="output"></div>
+			<div class="dl-done d-n" id="output"><br /></div>
 		</div>
 	</div>
 </body>
 <script>
-let asyncDash = api(`dashboards/${scriptArgs.dashboardId}`,{
+let {dashboardId} = arg && JSON.parse(arg) || {}
+let asyncDash = api(`dashboards/${dashboardId}`,{
 	qs:{fields:"dashboard_elements(title,query_id,result_maker(filterables)),dashboard_filters(name,type)"}
 	})
 let latestFilters = null
+let limit = 50000
 
 window.addEventListener("message", (evt) => {
-	if (event.origin === "https://"+env.lkrUiHost){
-			let data = JSON.parse(event.data)
-			if(data.type == "dashboard:filters:changed"){
-				display('.dl-ready','#dl>*')
-				latestFilters = data.dashboard.dashboard_filters
-				}
+	if (event.origin === "https://"+lkrUiHost){
+		let data = JSON.parse(event.data)
+		if(data.type == "dashboard:filters:changed"){
+			display('.dl-ready','#dl>*')
+			latestFilters = data.dashboard.dashboard_filters
 			}
+		}
 	})
 
 document.querySelector("#embed").src =
-	"https://" + env.lkrUiHost
-	+ "/embed/dashboards/" + scriptArgs.dashboardId
-	+ "?embed_domain=" + document.location.origin
+	`https://${lkrUiHost}/embed/dashboards/${dashboardId}?embed_domain=${document.location.origin}`
 
 document.querySelector("#dl form").addEventListener("submit", async evt => {
 	evt.preventDefault()
 	display('.dl-pending','#dl>*')
-	document.getElementById('output').innerHTML=""
 	let dash = await asyncDash
 	let tile = dash.dashboard_elements && dash.dashboard_elements[0]
 	if(!tile){return}
@@ -84,17 +87,27 @@ document.querySelector("#dl form").addEventListener("submit", async evt => {
 			}),query.filters)
 	let modifiedQuery = {
 		...removeExtraneousFields(query),
+		limit: limit,
 		filters: combinedFilters
 		}
 	let csv = await api("POST queries/run/csv",{
 		qs: {force_production:true},
 		body: modifiedQuery
 		})
+	let rundate = (new Date()).toJSON()
+	let headerRows = [
+		"Run date,"+rundate,
+		...Object.entries(combinedFilters)
+			.map(([field,value]) => field+',"'+value.replace(/"/g,'""')+'"'),
+		"Limit,"+limit
+		].join("\n")
 	let anchor = document.createElement("a")
 	anchor.innerText = "Download done"
-	anchor.setAttribute("download","mydata.csv")
-	anchor.setAttribute("href",`data:text/plain,${encodeURIComponent(csv)}`)
-	document.getElementById("output").appendChild(anchor)
+	let filename = rundate.slice(0,10)+'-'+tile.title.replace(/[^a-zA-Z0-9]+/g,'-').slice(0,30)
+	anchor.setAttribute("download",`${filename}.csv`)
+	anchor.setAttribute("href",`data:text/plain,${encodeURIComponent(headerRows+"\n\n"+csv)}`)
+	let output = document.getElementById("output")
+	output.replaceChild(anchor,output.firstChild)
 	display('.dl-done','#dl>*')
 	anchor.click()
 	})
