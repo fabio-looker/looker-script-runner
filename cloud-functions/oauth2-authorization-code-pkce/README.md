@@ -45,10 +45,13 @@ This proof-of-concept uses the OAuth2 Authentication Code with PKCE flow to enab
                                                   [  Knows: Lkr #2 Admin Secret]    [  Knows: its users]   
 ```
 
-# Implementation
+# Usage
 
+### Application Implementation
 The `sample-login.html` file demonstrates the most basic application-side implementation of the standard flow. It can either hard-code the URL for Intermediary OAuth Server(s) or allow users to specify the server to connect against. Applications may also use a standard OAuth library of their choice.
 
-The `index.js` file implements the Intermediary OAuth Service and can be deployed as a Google Cloud Function. Set environmental variables to configure which Application origins it will allow (possibly *) and which Looker instance/secret it should connect with.
-
+### Looker Instance Configuration
 The LookML files implement a model and dashboard that present a challenge to the end user via the UI. The Intermediary Oauth Service then verifies the challenge against backend API calls to Looker, to ensure that only users authorized in Looker's UI can receive an access token from the Intermediary OAuth Server. The model requires a BigQuery connection for calculating a rotating secret and hash. Configure the model with the URL(s) of trusted Intermediary OAuth Server(s).
+
+### Intermediary OAuth2 Service Deployment
+The `index.js` file implements the Intermediary OAuth Service and can be deployed as a Google Cloud Function. Set environmental variables to configure which Application origins it will allow (possibly *) and which Looker instance/secret it should connect with.
