@@ -30,7 +30,7 @@ It also meant that it is dubious to build a multi-Looker-instance server-side ap
                    [  Knows: Looker #2 Admin Secret :-/  ]
                    [  Doesn't... know who users are or   ]  -> [ Looker Instance #2 ]
                    [    how they should be granted access]
-                   [    to which instances               ]
+                   [    to which instances :(            ]
 ```
 
 So what could you do if you just wanted to build a third party application that leverages Looker in general, but not a specific Looker per deployment? Or doesn't even require deployments and can be used by any Looker user? Not much...
@@ -38,7 +38,7 @@ So what could you do if you just wanted to build a third party application that 
 This proof-of-concept uses the OAuth2 Authentication Code with PKCE flow to enable:
 
 ```
-[Application Code            ]                 -> [Intermediary OAuth Service  ] -> [Looker Instance #1]
+[Application Code            ]                 -> [Intermediary OAuth2 Service ] -> [Looker Instance #1]
 [ Can be hosted statically   ] -> [User 1/App]    [  Knows: Lkr #1 Admin Secret]    [  Knows: its users]
 [ Doesn't know users         ] -> [User 2/App]
 [ Doesn't know Looker secrets]                 -> [Intermediary OAuth2 Service ] -> [Looker Instance #2]
