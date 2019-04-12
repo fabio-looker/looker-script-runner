@@ -41,8 +41,8 @@ This proof-of-concept uses the OAuth2 Authentication Code with PKCE flow to enab
 [Application Code            ]                 -> [Intermediary OAuth Service  ] -> [Looker Instance #1]
 [ Can be hosted statically   ] -> [User 1/App]    [  Knows: Lkr #1 Admin Secret]    [  Knows: its users]
 [ Doesn't know users         ] -> [User 2/App]
-[ Doesn't know Looker secrets]                 -> [Intermediary OAuth2 Service ] -> [Looker Instance #2 ]
-                                                  [  Knows: Lkn #2 Admin Secret]    [   Knows: its users]   
+[ Doesn't know Looker secrets]                 -> [Intermediary OAuth2 Service ] -> [Looker Instance #2]
+                                                  [  Knows: Lkn #2 Admin Secret]    [  Knows: its users]   
 ```
 
 # Implementation
