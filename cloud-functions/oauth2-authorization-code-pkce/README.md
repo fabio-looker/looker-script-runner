@@ -1,3 +1,10 @@
+
+# Disclaimer
+
+There is no warranty associated with this project. It may not work, or may not be secure. Although it attempts to be secure, it is an unofficial project hacked together by one person over the course of a few days. Given that it implements a complex authorization process with multiple parties, messages, and cryptographic steps, any use of the code should be thoroughly vetted by your own security experts before use.
+
+# Motivation
+
 Previously, any multi-user application that wanted to interact with Looker had no recourse but to be configured with an administrative Looker secret:
 
 ```
