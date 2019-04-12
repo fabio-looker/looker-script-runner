@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+</head>
+<body>
+<div id="msg" style="margin-top:4em;text-align:center">Logging in...</div>
+</body>
+<script>
+var query = document.location.search
+	.replace(/^\?/,'').split("&")
+	.map(function(s){return {k:decodeURIComponent(s.split('=')[0]),v:decodeURIComponent(s.split('=').slice(1).join('='))}})
+	.reduce(function(accum,o,i){accum[o.k]=o.v;return accum},{})
+history.replaceState(null,null,"?")
+var auth = tryJsonParse(localStorage.getItem('auth')) || {}
+var msg = document.getElementById("msg")
+var oauthUrlPrefix = 'https://us-central1-data-proto.cloudfunctions.net/oauth2-authorization-code-pkce'
+var redirect_uri = document.location.origin+"/login"
+
+if(!doesAuthAppearValid(auth) && !query.code){
+	//No/expired token in localStorage and no code in URL -> init auth flow
+	var state = hex(randBuffer(8))
+	var code_verifier = base64Url(randBuffer(32))
+	var code_challengePromise = sha254Base64UrlPromise(code_verifier)
+	var store = {
+		code_verifier: code_verifier,
+		state: state
+		}
+	localStorage.setItem('auth',JSON.stringify(store))
+	code_challengePromise.then(function(code_challenge){
+		console.log("verifier: ",code_verifier,"challenge: ",code_challenge)
+		document.location = (`${oauthUrlPrefix}/authorize`
+			+"?client_id=1"
+			+"&response_type=code"
+			+"&scope=full"
+			+"&redirect_uri="+encodeURIComponent(redirect_uri)
+			+"&state="+state
+			+"&code_challenge_method=S256"
+			+"&code_challenge="+code_challenge
+			)
+		})
+	}
+else if(!doesAuthAppearValid(auth) && query.code){
+	//No/expired token in localStorage and code in URL -> POST code for token
+	exchangeCodeForToken()
+	}
+else {
+	//Auth token exists and is not expired. Notify calling page
+	tokenReadyCallback(auth)
+	}
+
+function exchangeCodeForToken(){
+	var xhr = new XMLHttpRequest()
+	to = setTimeout(function(){xhr.abort(); msg.innerHtml="An authorization request took too long and was timed out. <a href='/login'>Try again?</a>"}, 15000)
+	xhr.onreadystatechange = function(){
+		if(xhr.readyState>3){
+			clearTimeout(to)
+			var result = tryJsonParse(xhr.responseText)
+			if(xhr.status!=200){
+				msg.innerHtml = "Authorization failed! "+result&&result.message||xhr.responseText+" <a href='/login'>Try again?</a>"
+				}
+			if(!doesAuthAppearValid(result)){
+				msg.innerHtml = "Authorization failed!"
+				}
+			localStorage.setItem('auth',JSON.stringify(result))
+			if(!doesAuthAppearValid(tryJsonParse(localStorage.getItem('auth')))){
+				msg.innerHtml = "Error storing session credentials. Check your cookie/storage settings, then <a href='/login'>try again.</a>"
+				}
+			tokenReadyCallback(result)
+			}
+		}
+	console.log("verifier: ",auth.code_verifier)
+	xhr.open("POST", oauthUrlPrefix+'/token?debug=1', true)
+	xhr.withCredentials = false
+	xhr.setRequestHeader('Content-type', 'application/json')
+	xhr.send(JSON.stringify({
+		grant_type:"authorization_code",
+		client_id:"1",
+		code: query.code,
+		code_verifier: auth.code_verifier,
+		redirect_uri: redirect_uri
+		}))
+	}
+
+function tokenReadyCallback(auth){
+	document.cookie='token='+auth.access_token
+	try{
+		if(opener && opener!==self){
+			opener.postMessage('"authReady"',document.location.origin)
+			window.close()
+			}
+		else{
+			document.location = '/'
+			}
+		}
+	catch(e){
+		document.location = '/'
+		}
+	}
+
+function randBuffer(bytelen){
+	var array = new Uint8Array(bytelen || 16)
+	crypto.getRandomValues(array)
+	return array.buffer
+	}
+function sha254Base64UrlPromise(str) {
+	var bufferIn = new TextEncoder("utf-8").encode(str)
+	var bufferOutPromise = crypto.subtle.digest("SHA-256", bufferIn)
+	return bufferOutPromise.then(function(bufferOut){return base64Url(bufferOut)})
+	}
+function base64Url(buffer){
+	var str = ''
+	var bytes = new Uint8Array(buffer)
+	for (var i = 0, l = bytes.byteLength; i < l; i++) {
+		str += String.fromCharCode(bytes[i])
+		}
+	return btoa(str).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_')
+	}
+function hex(buffer) {
+	var digest = ''
+	var view = new DataView(buffer)
+	for(var i = 0; i < view.byteLength; i += 4) {
+		// We use getUint32 to reduce the number of iterations (notice the `i += 4`)
+		var value = view.getUint32(i)
+		// toString(16) will transform the integer into the corresponding hex string
+		// but will remove any initial "0"
+		var stringValue = value.toString(16)
+		// One Uint32 element is 4 bytes or 8 hex chars (it would also work with 4
+		// chars for Uint16 and 2 chars for Uint8)
+		var padding = '00000000'
+		var paddedValue = (padding + stringValue).slice(-padding.length)
+		digest += paddedValue
+		}
+	return digest
+	}
+function tryJsonParse(str,dft){
+	try{return JSON.parse(str)}
+	catch(e){return dft}
+	}
+function doesAuthAppearValid(auth){
+	return auth && auth.access_token && auth.expires > Date.now()/1000
+	}
+</script>
+</html>

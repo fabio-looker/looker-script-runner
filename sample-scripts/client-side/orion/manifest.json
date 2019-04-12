@@ -1,0 +1,15 @@
+{
+	"label":"Orion Explore Engine",
+	"sandbox":"allow-scripts",
+	"description":"Generate a query across any explores in a model",
+	"paramSchema":{
+		"type":"object",
+		"properties":{
+			"modelName":{"type":"string","title":"Model"}
+		}
+	},
+	"paramInit":{
+		"modelName":"faa_redshift",
+		"timeframe":"28 days"
+	}
+}
