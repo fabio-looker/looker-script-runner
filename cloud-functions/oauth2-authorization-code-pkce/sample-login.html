@@ -82,18 +82,24 @@ function exchangeCodeForToken(){
 	}
 
 function tokenReadyCallback(auth){
-	document.cookie='token='+auth.access_token
-	try{
-		if(opener && opener!==self){
-			opener.postMessage('"authReady"',document.location.origin)
-			window.close()
+	console.log(auth)
+	let cont = window.prompt(
+		"Here's your access token. Copy it & cancel, or hit Ok to save it to cookies and return to /"
+	)
+	if(cont){
+		document.cookie='token='+auth.access_token
+		try{
+			if(opener && opener!==self){
+				opener.postMessage('"authReady"',document.location.origin)
+				window.close()
+				}
+			else{
+				document.location = '/'
+				}
 			}
-		else{
-			document.location = '/'
+		catch(e){
+			console.error(e)
 			}
-		}
-	catch(e){
-		document.location = '/'
 		}
 	}
 
