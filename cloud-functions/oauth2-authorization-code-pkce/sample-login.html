@@ -84,7 +84,8 @@ function exchangeCodeForToken(){
 function tokenReadyCallback(auth){
 	console.log(auth)
 	let cont = window.prompt(
-		"Here's your access token. Copy it & cancel, or hit Ok to save it to cookies and return to /"
+		"Here's your access token. Copy it & cancel, or hit Ok to save it to cookies and return to /",
+		auth.access_token
 	)
 	if(cont){
 		document.cookie='token='+auth.access_token
