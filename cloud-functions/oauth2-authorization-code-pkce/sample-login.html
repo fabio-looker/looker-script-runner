@@ -51,7 +51,7 @@ else {
 function exchangeCodeForToken(){
 	var xhr = new XMLHttpRequest()
 	to = setTimeout(function(){xhr.abort(); msg.innerHtml=`An authorization request took too long and was timed out. <a href='${redirect_uri}'>Try again?</a>`}, 15000)
-	xhr.onreadystatechange = function()`
+	xhr.onreadystatechange = function(){
 		if(xhr.readyState>3){
 			clearTimeout(to)
 			var result = tryJsonParse(xhr.responseText)
