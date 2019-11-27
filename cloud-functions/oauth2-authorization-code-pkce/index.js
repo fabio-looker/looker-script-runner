@@ -242,7 +242,7 @@ exports.requestHandler = async (req, res) => {
 			let [access_token, expires, priorChallengeEncoded] = JSON.parse(plaintext)
 			let priorChallenge = lookerOpaqueDecode(priorChallengeEncoded)
 			let calculatedChallenged = sha256Base64Url(req.body.code_verifier)
-			if(calculatedChallenged != priorChallenge){
+			if(!constantTimeEqual(calculatedChallenged, priorChallenge)){
 				if(debug){console.log("code_verifier rejected",{
 					priorChallenge,
 					receivedVerifier:req.body.code_verifier,
@@ -329,4 +329,15 @@ function sha256Base64Url(str) {
 	let hasher = crypto.createHash('sha256')
 	hasher.update(str,'utf8')
 	return hasher.digest().toString('base64').replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_')
+	}
+function constantTimeEqual(a, b) {
+	if(typeof a!=="string"){throw new Error("String argument required")}
+	if(typeof b!=="string"){throw new Error("String argument required")}
+	const aLen = Buffer.byteLength(a)
+	const bLen = Buffer.byteLength(b)
+	const bufferA = Buffer.alloc(aLen, 0, 'utf8')
+	bufA.write(strA)
+	const bufferB = Buffer.alloc(aLen, 0, 'utf8') //Yes, aLen
+	bufB.write(strB)
+	return crypto.timingSafeEqual(bufferA, bufferB) && aLen === bLen
 	}
