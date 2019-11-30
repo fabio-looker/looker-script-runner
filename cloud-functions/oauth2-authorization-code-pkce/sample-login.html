@@ -14,7 +14,7 @@ history.replaceState(null,null,"?")
 var auth = tryJsonParse(localStorage.getItem('auth')) || {}
 var msg = document.getElementById("msg")
 var oauthUrlPrefix = 'https://us-central1-data-proto.cloudfunctions.net/oauth2-authorization-code-pkce'
-var redirect_uri = document.location.origin+"/login"
+var redirect_uri = document.location.href.split(/\?|#/)[0] //By convention, this file might be available at /login , but we'll do it dynamically for flexibility of the example file
 
 if(!doesAuthAppearValid(auth) && !query.code){
 	//No/expired token in localStorage and no code in URL -> init auth flow
@@ -50,20 +50,20 @@ else {
 
 function exchangeCodeForToken(){
 	var xhr = new XMLHttpRequest()
-	to = setTimeout(function(){xhr.abort(); msg.innerHtml="An authorization request took too long and was timed out. <a href='/login'>Try again?</a>"}, 15000)
+	to = setTimeout(function(){xhr.abort(); msg.innerHtml=`An authorization request took too long and was timed out. <a href='${redirect_uri}'>Try again?</a>`}, 15000)
 	xhr.onreadystatechange = function(){
 		if(xhr.readyState>3){
 			clearTimeout(to)
 			var result = tryJsonParse(xhr.responseText)
 			if(xhr.status!=200){
-				msg.innerHtml = "Authorization failed! "+result&&result.message||xhr.responseText+" <a href='/login'>Try again?</a>"
+				msg.innerHtml = `Authorization failed! "+result&&result.message||xhr.responseText+" <a href='${redirect_uri}'>Try again?</a>`
 				}
 			if(!doesAuthAppearValid(result)){
 				msg.innerHtml = "Authorization failed!"
 				}
 			localStorage.setItem('auth',JSON.stringify(result))
 			if(!doesAuthAppearValid(tryJsonParse(localStorage.getItem('auth')))){
-				msg.innerHtml = "Error storing session credentials. Check your cookie/storage settings, then <a href='/login'>try again.</a>"
+				msg.innerHtml = `Error storing session credentials. Check your cookie/storage settings, then <a href='${redirect_uri}'>try again.</a>`
 				}
 			tokenReadyCallback(result)
 			}
@@ -82,18 +82,25 @@ function exchangeCodeForToken(){
 	}
 
 function tokenReadyCallback(auth){
-	document.cookie='token='+auth.access_token
-	try{
-		if(opener && opener!==self){
-			opener.postMessage('"authReady"',document.location.origin)
-			window.close()
+	console.log(auth)
+	let cont = window.prompt(
+		"Here's your access token. Copy it & cancel, or hit Ok to save it to cookies and return to /",
+		auth.access_token
+	)
+	if(cont){
+		document.cookie='token='+auth.access_token
+		try{
+			if(opener && opener!==self){
+				opener.postMessage('"authReady"',document.location.origin)
+				window.close()
+				}
+			else{
+				document.location = '/'
+				}
 			}
-		else{
-			document.location = '/'
+		catch(e){
+			console.error(e)
 			}
-		}
-	catch(e){
-		document.location = '/'
 		}
 	}
 
