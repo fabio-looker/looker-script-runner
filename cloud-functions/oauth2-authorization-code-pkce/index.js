@@ -330,11 +330,11 @@ function sha256Base64Url(str) {
 	hasher.update(str,'utf8')
 	return hasher.digest().toString('base64').replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_')
 	}
-function constantTimeEqual(a, b) {
-	if(typeof a!=="string"){throw new Error("String argument required")}
-	if(typeof b!=="string"){throw new Error("String argument required")}
-	const aLen = Buffer.byteLength(a)
-	const bLen = Buffer.byteLength(b)
+function constantTimeEqual(strA, strB) {
+	if(typeof strA!=="string"){throw new Error("String argument required")}
+	if(typeof strB!=="string"){throw new Error("String argument required")}
+	const aLen = Buffer.byteLength(strA)
+	const bLen = Buffer.byteLength(strB)
 	const bufA = Buffer.alloc(aLen, 0, 'utf8')
 	bufA.write(strA)
 	const bufB = Buffer.alloc(aLen, 0, 'utf8') //Yes, aLen
