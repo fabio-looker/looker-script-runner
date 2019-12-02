@@ -335,9 +335,9 @@ function constantTimeEqual(a, b) {
 	if(typeof b!=="string"){throw new Error("String argument required")}
 	const aLen = Buffer.byteLength(a)
 	const bLen = Buffer.byteLength(b)
-	const bufferA = Buffer.alloc(aLen, 0, 'utf8')
+	const bufA = Buffer.alloc(aLen, 0, 'utf8')
 	bufA.write(strA)
-	const bufferB = Buffer.alloc(aLen, 0, 'utf8') //Yes, aLen
+	const bufB = Buffer.alloc(aLen, 0, 'utf8') //Yes, aLen
 	bufB.write(strB)
-	return crypto.timingSafeEqual(bufferA, bufferB) && aLen === bLen
+	return crypto.timingSafeEqual(bufA, bufB) && aLen === bLen
 	}
