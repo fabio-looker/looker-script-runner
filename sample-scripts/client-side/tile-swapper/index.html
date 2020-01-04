@@ -1,0 +1,47 @@
+<!doctype HTML>
+<html><head>
+<script src="../../lib/api.js"></script>
+<script>
+let {
+	lkrUiHost,
+	lkrApiHost,
+	token, //API token
+	cfnCors, //Host of CORS proxy
+	arg //User arguments specific for this script
+	} = document.location.hash.slice(1).split('&')
+	.map(pair=>pair.split('='))
+	.reduce((obj,parts)=>({...obj,[decodeURIComponent(parts[0])]:decodeURIComponent(parts.slice(1).join('='))}),{})
+let api = Api({lkrApiHost,token,cfnCors,apiVersion:"3.1"})
+</script>
+<style>
+	textarea {height:6em;width:1200px;}
+</style>
+</head>
+<body>
+	<textarea id="metadata" readonly=readonly></textarea>
+	<div id="components"></div>
+</body>
+<script>
+let $metadata = document.getElementById("metadata")
+let $components = document.getElementById("components")
+let {dashboardId} = arg && JSON.parse(arg) || {}
+let dashboard = await api(`GET /dashboards/${dashboardId}/dashboard_layouts.id,dashboard_id,type,active,dashboard_layout_components(id,dashboard_layout_id,dashboard_element_id,row,column,width,height)`)
+let {dashboard_layout_components, ...rest} = dashboard
+async function updateComponent(form){
+	let textarea = form.querySelector("textarea")
+	let component = JSON.parse(textarea.value)
+	await api(`PATCH /dashboard_layout_components/${component.id}`,{...})
+	}
+
+$metadata.value = JSON.stringify(rest,null,2)
+dashboard_layout_components.forEach(component => {
+	let el = $components.appendChild("div")
+	div.innerHTML = `
+		<form onsubmit='updateComponent(this)'>
+			<textarea>${JSON.stringify(component,null,2)}</textarea>
+			<input type='submit'>Save [TODO]</input>
+		</form>`
+	})
+
+</script>
+</html>

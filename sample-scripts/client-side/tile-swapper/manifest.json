@@ -1,0 +1,14 @@
+{
+	"label":"Tile Swapper",
+	"sandbox":"allow-scripts allow-same-origin allow-forms",
+	"description":"(1) A page to hide a tile on a dashboard of your choice - Incomplete. (2) An embed demo that swaps in a hidden tile once it is ready",
+	"paramSchema":{
+		"type":"object",
+		"properties":{
+			"dashboardId":{"type":"string","title":"Dashboard ID"}
+		}
+	},
+	"paramInit":{
+		"dashboardId":"67"
+	}
+}
